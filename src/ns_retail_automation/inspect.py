@@ -70,6 +70,31 @@ def print_tree(control: ControlInfo, *, stream=sys.stdout) -> None:
         print(format_control(node), file=stream)
 
 
+def print_actionable(root: ControlInfo, *, stream=sys.stdout) -> int:
+    """Print only the controls worth automating.
+
+    A full WinForms tree runs to thousands of lines; this keeps the ones that
+    have a name or an automation id and a usable control type, which is what
+    goes into config/selectors.json. The complete tree is still saved with
+    --json.
+    """
+    shown = 0
+    for node in walk(root):
+        if node.control_type not in INTERESTING_TYPES and node.control_type != "Window":
+            continue
+        if not (node.name or node.automation_id):
+            continue
+        print(format_control(node), file=stream)
+        shown += 1
+    if shown == 0:
+        print(
+            "(no named controls found - try --ui-backend win32, or run the full "
+            "tree without --actionable)",
+            file=stream,
+        )
+    return shown
+
+
 def print_selector_suggestions(root: ControlInfo, *, stream=sys.stdout) -> None:
     """Print copy-paste ready selector snippets for the actionable controls."""
     print("\nSelector suggestions (copy into config/selectors.json):", file=stream)
@@ -138,6 +163,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--depth", type=int, default=8, help="how deep to walk the control tree (default: 8)")
     parser.add_argument("--json", dest="json_path", help="also write the full tree to this JSON file")
     parser.add_argument("--no-suggestions", action="store_true", help="do not print selector suggestions")
+    parser.add_argument(
+        "--actionable",
+        action="store_true",
+        help="print only named/identified controls instead of the whole tree (much shorter)",
+    )
     parser.add_argument("--ui-backend", default="uia", choices=("uia", "win32"), help="pywinauto backend (default: uia)")
     return parser
 
@@ -179,7 +209,12 @@ def main(argv: list[str] | None = None) -> int:
             f"pid={window.info.process_id}\n"
         )
         tree = backend.describe_window(window, max_depth=args.depth)
-        print_tree(tree)
+        if args.actionable:
+            total = len(walk(tree))
+            shown = print_actionable(tree)
+            print(f"\n({shown} named controls shown out of {total} in the tree)")
+        else:
+            print_tree(tree)
 
         if not args.no_suggestions:
             print_selector_suggestions(tree)

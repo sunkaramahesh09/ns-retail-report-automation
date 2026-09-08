@@ -39,17 +39,16 @@ if not exist docs\captures mkdir docs\captures
 
 if not "%~2"=="" (
     echo Capturing the window matching "%~2" ...
-    "%PY%" -m ns_retail_automation.inspect --title-re "%~2" --depth 10 --json "docs\captures\%~1.json" > "docs\captures\%~1.txt" 2>&1
+    "%PY%" -m ns_retail_automation.inspect --title-re "%~2" --depth 12 --actionable --json "docs\captures\%~1.json" > "docs\captures\%~1.txt" 2>&1
 ) else (
     echo Put NS Retail on the screen you want to capture.
     echo You have 8 seconds to click that window...
     echo.
-    "%PY%" -m ns_retail_automation.inspect --delay 8 --depth 10 --json "docs\captures\%~1.json" > "docs\captures\%~1.txt" 2>&1
+    "%PY%" -m ns_retail_automation.inspect --delay 8 --depth 12 --actionable --json "docs\captures\%~1.json" > "docs\captures\%~1.txt" 2>&1
 )
 
 echo.
-echo === first 40 lines of the capture ================================
-more /E +0 "docs\captures\%~1.txt" | findstr /N /R "." | findstr /R "^[1-9]: ^[1-3][0-9]: ^40:"
+type "docs\captures\%~1.txt"
 echo.
 echo ==================================================================
 echo Saved:  docs\captures\%~1.txt
