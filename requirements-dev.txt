@@ -1,0 +1,6 @@
+-r requirements.txt
+
+pytest>=7.4
+
+# Used in Phase 7 to build NS-Retail-Report-Automation.exe (Windows only).
+pyinstaller>=6.0 ; sys_platform == "win32"

@@ -1,0 +1,7 @@
+# Keep Windows batch files with CRLF endings so cmd.exe runs them correctly,
+# whatever platform they are checked out on.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Everything else uses LF in the repository.
+* text=auto

@@ -1,0 +1,37 @@
+# Never commit real configuration - it holds site specific paths, and could
+# tempt someone into putting a password in it.
+config/config.json
+config/selectors.json
+*.local.json
+
+# Never commit credentials
+.env
+*.env
+credentials.json
+
+# Logs and exports (the folders stay, their contents do not)
+logs/*
+!logs/.gitkeep
+*.log
+*.csv
+
+# Build output
+build/*
+!build/.gitkeep
+dist/
+*.spec.bak
+*.egg-info/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,77 @@
+{
+  "application": {
+    "name": "NS Retail",
+    "version": "4.0.3",
+    "executable_path": "C:\\Program Files (x86)\\NS Retail\\NSRetail.exe",
+    "working_directory": "",
+    "process_name": "NSRetail.exe",
+    "ui_backend": "uia",
+    "launch_timeout_seconds": 90,
+    "connect_timeout_seconds": 30,
+    "reuse_running_instance": true,
+    "close_when_finished": false
+  },
+
+  "login": {
+    "enabled": false,
+    "credential_source": "none",
+    "username": "",
+    "username_env_var": "NS_RETAIL_USERNAME",
+    "password_env_var": "NS_RETAIL_PASSWORD",
+    "keyring_service": "NS Retail",
+    "timeout_seconds": 60
+  },
+
+  "dates": {
+    "fiscal_year_start_month": 4,
+    "fiscal_year_label_format": "{start_year}-{end_year_short}"
+  },
+
+  "schedule": {
+    "default_report_date": "yesterday"
+  },
+
+  "reports": {
+    "default_report": "purchases",
+    "purchases": {
+      "enabled": true,
+      "export_format": "CSV",
+      "generation_timeout_seconds": 300,
+      "storage_overrides": {}
+    }
+  },
+
+  "storage": {
+    "base_path": "D:\\{fy_label} DAY WISE REPORTS",
+    "report_folder_template": "{fy_label} DAY WISE SALE REPORTS",
+    "month_folder_template": "{month_num}.{month_name_upper}",
+    "date_folder_template": "{dd}.{mm}.{yyyy}",
+    "filename_template": "{dd}.{mm}.{yyyy}.csv",
+    "create_missing_folders": true,
+    "on_existing_file": "skip",
+    "duplicate_suffix_template": " ({n})"
+  },
+
+  "timeouts": {
+    "window_seconds": 30,
+    "control_seconds": 15,
+    "menu_seconds": 15,
+    "report_seconds": 300,
+    "export_seconds": 120,
+    "file_seconds": 120
+  },
+
+  "retry": {
+    "attempts": 3,
+    "delay_seconds": 1.0,
+    "backoff": 1.5
+  },
+
+  "logging": {
+    "level": "INFO",
+    "console_level": "INFO",
+    "directory": "logs",
+    "filename_template": "automation_{date}.log",
+    "retention_days": 30
+  }
+}

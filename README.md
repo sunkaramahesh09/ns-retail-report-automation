@@ -1,0 +1,252 @@
+# NS Retail Report Automation
+
+Automates the daily report chore for **NS Retail v4.0.3** (Windows desktop app):
+
+> open NS Retail → Reports → Stock Reports → Purchases → pick the date → Search →
+> Report → Report Viewer → Export To → CSV → save into the day-wise folder.
+
+The automation itself **only runs on Windows** (that is where NS Retail lives).
+Everything else — dates, folder structure, filenames, configuration, logging,
+CLI, tests — runs anywhere, so the project can be developed on macOS.
+
+---
+
+## Status: Phase 1 complete
+
+| Area | State |
+|---|---|
+| Configuration, dates, folders, filenames, existing-file safety | **Implemented and tested** |
+| Logging, CLI, dry run, environment checks | **Implemented and tested** |
+| Windows automation layer (pywinauto / UI Automation) | **Implemented, not yet verified against NS Retail** |
+| Read-only Windows inspection tool | **Implemented, needs a Windows PC to run** |
+| The actual NS Retail control mapping (which button is which) | **NOT DONE — this is Phase 2** |
+
+The control details for NS Retail are deliberately **not** in the code. Nothing
+in this project guesses an automation id, a control name or a screen
+coordinate. They live in `config/selectors.json`, which you fill in on the
+Windows PC using the inspection tool. Until then every automation step fails
+with a message naming the step that still has to be mapped.
+
+---
+
+## Install
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements-dev.txt
+pip install -e .                   # gives you the ns-retail-automation command
+```
+
+The Windows-only packages (pywinauto, pywin32, comtypes) are marked
+`sys_platform == "win32"`, so the same command works on macOS — they are just
+skipped there.
+
+## Configure
+
+```bash
+cp config/config.example.json config/config.json
+cp config/selectors.example.json config/selectors.json
+```
+
+Then edit `config/config.json`. The settings that matter first:
+
+| Setting | Meaning |
+|---|---|
+| `application.executable_path` | Full path to `NSRetail.exe` (only needed if you want the tool to start it) |
+| `application.process_name` | Executable name used to detect an already-running NS Retail |
+| `storage.base_path` | Root of the report folders, e.g. `D:\2026-27 DAY WISE REPORTS` |
+| `storage.*_template` | Folder and filename patterns (see below) |
+| `storage.on_existing_file` | `skip` (default, safe), `overwrite`, `duplicate` or `ask` |
+| `schedule.default_report_date` | `yesterday` (default), `today`, or a fixed date |
+| `dates.fiscal_year_start_month` | `4` = Indian financial year (April→March); `1` = calendar year |
+| `login.enabled` | `false` by default — log in by hand, the automation continues from there |
+
+### Folder and filename templates
+
+Templates are filled with these placeholders:
+
+`{dd} {mm} {yyyy} {yy} {d} {m} {month_num} {month_num_padded} {month_name_upper}
+{month_name} {month_name_short} {iso} {fy_label} {fy_start_year} {fy_end_year}`
+
+The defaults reproduce the existing structure:
+
+```
+D:\2026-27 DAY WISE REPORTS\          storage.base_path
+  2026-27 DAY WISE SALE REPORTS\      {fy_label} DAY WISE SALE REPORTS
+    9.SEPTEMBER\                      {month_num}.{month_name_upper}
+      08.09.2026\                     {dd}.{mm}.{yyyy}
+        08.09.2026.csv                {dd}.{mm}.{yyyy}.csv
+```
+
+Missing month/date folders are created automatically
+(`storage.create_missing_folders`). Set a folder template to `""` to drop that
+level entirely.
+
+### Credentials (only if you enable automatic login)
+
+Passwords are never stored in the source or in `config.json`. Choose
+`login.credential_source`:
+
+* `env` — set `NS_RETAIL_USERNAME` / `NS_RETAIL_PASSWORD` (`setx NAME value` on Windows)
+* `keyring` — Windows Credential Manager: `python -m keyring set "NS Retail" <username>`
+* `prompt` — typed by the operator each run
+* `none` — automatic login disabled (the default; log in by hand)
+
+---
+
+## Use
+
+```bash
+ns-retail-automation --dry-run                          # show what would happen
+ns-retail-automation --report purchases --date yesterday
+ns-retail-automation --report purchases --date 2026-09-08
+ns-retail-automation --date 08-09-2026 --on-existing duplicate
+ns-retail-automation --check                            # what is ready, what is not
+ns-retail-automation --list-reports
+ns-retail-automation --inspect                          # Windows only, read-only
+```
+
+Without installing, use `PYTHONPATH=src python3 -m ns_retail_automation ...`.
+
+Dates accept `today`, `yesterday`, `2026-09-08`, `08-09-2026`, `08.09.2026`,
+`08/09/2026` (day first).
+
+Exit codes: `0` success · `1` automation failed · `2` configuration/usage
+problem · `3` skipped because the report already existed.
+
+### Dry run (works on macOS)
+
+```
+$ ns-retail-automation --report purchases --date yesterday --dry-run
+DRY RUN - NS Retail will not be touched.
+
+Report      : purchases
+Date        : 07-09-2026 (Monday 07 September 2026)
+Destination : D:\2026-27 DAY WISE REPORTS\2026-27 DAY WISE SALE REPORTS\9.SEPTEMBER\07.09.2026
+Filename    : 07.09.2026.csv
+Full path   : D:\...\07.09.2026\07.09.2026.csv
+Existing file: no -> action 'create'
+
+Not mapped to NS Retail yet (Phase 2 work):
+  - open_reports
+  ...
+```
+
+Windows paths such as `D:\...` are understood on macOS too (as
+`PureWindowsPath`), so the dry run prints exactly what the Windows PC will use.
+
+---
+
+## Run it on the Windows PC
+
+Copy the whole project folder over, then from a Command Prompt inside it:
+
+```bat
+scripts\setup_windows.bat
+```
+
+That creates `.venv`, installs the packages, copies the example config files and
+finishes with `ns-retail-automation --check`. After that:
+
+```bat
+.venv\Scripts\activate
+ns-retail-automation --dry-run
+scripts\inspect_windows.bat                REM list every open window
+scripts\inspect_windows.bat purchases      REM capture one screen to docs\captures\
+```
+
+A real run only works once `config/selectors.json` is filled in (Phase 2 below).
+
+## On Windows: inspecting NS Retail (Phase 2)
+
+The inspection tool is **read-only** — it never clicks, types or closes
+anything.
+
+```bat
+python -m ns_retail_automation.inspect --windows
+python -m ns_retail_automation.inspect --delay 5
+python -m ns_retail_automation.inspect --title-re "NS Retail.*" --depth 10 --json main.json
+```
+
+It prints the control tree (control type, name, automation id, class name) plus
+copy-paste ready selector snippets. Work through
+[`docs/PHASE2_UI_MAPPING.md`](docs/PHASE2_UI_MAPPING.md) — it lists exactly
+which screens to capture and where each result goes in
+`config/selectors.json`. Check your progress at any time with
+`ns-retail-automation --check`.
+
+---
+
+## Project layout
+
+```
+src/ns_retail_automation/
+  main.py                 CLI (--report/--date/--dry-run/--check/--inspect)
+  inspect.py              read-only Windows control inspector
+  logging_config.py       daily log file + console output
+  errors.py               every error carries a plain-English message and a hint
+  platform_support.py     Windows / package detection
+  config/
+    settings.py           JSON config -> validated dataclasses
+    credentials.py        env vars, Windows Credential Manager, or prompt
+  automation/
+    base.py               platform-independent interface + UnsupportedBackend
+    windows.py            pywinauto / UI Automation backend (Windows only)
+    selectors.py          control definitions loaded from config/selectors.json
+    ns_retail.py          the NS Retail workflow, step by step
+  reports/
+    base.py               plan -> run -> verify, existing-file safety
+    purchase_report.py    Reports -> Stock Reports -> Purchases
+  filesystem/
+    report_storage.py     folders, filenames, duplicates, verification
+  utils/
+    dates.py              today/yesterday/date/range + financial year
+    retry.py, waits.py    explicit timeouts instead of long sleeps
+config/                   config.example.json, selectors.example.json
+tests/                    139 tests, all run on macOS
+docs/                     Phase 2 mapping guide
+logs/                     automation_YYYY-MM-DD.log
+```
+
+### Design rules this project follows
+
+1. Controls are found by **accessibility properties** (automation id, name,
+   control type, class name) — never by screen coordinates.
+2. Selectors are **data**, not code: fixing a broken step means editing
+   `config/selectors.json`, not rewriting Python.
+3. **No long sleeps.** Every wait names what it waits for and times out
+   (`wait_until`, `wait_for_file`, `retry_call`).
+4. **Never overwrite a report silently** — the default is `skip`.
+5. Windows-only code sits behind one interface, so macOS keeps working.
+6. Errors are written for the employee running the tool, not for a developer.
+
+## Tests
+
+```bash
+python3 -m pytest -q            # 139 tests, ~1s, no Windows required
+python3 -m pytest -m windows    # Windows-only smoke tests (skipped elsewhere)
+```
+
+## Packaging (Phase 7 — not yet)
+
+Once the automation is verified on Windows:
+
+```bat
+pyinstaller --onefile --name NS-Retail-Report-Automation ^
+  --paths src src\ns_retail_automation\main.py
+```
+
+Ship the `.exe` next to a `config` folder. Do not package before the workflow
+actually works on the real application.
+
+## Roadmap
+
+* **Phase 1 — done.** Structure, config, dates, folders, logging, CLI, dry run,
+  inspection tool, tests.
+* **Phase 2 — next.** Inspect NS Retail on Windows and fill in `config/selectors.json`.
+* **Phase 3.** Verify launch → connect → Reports → Stock Reports → Purchases.
+* **Phase 4.** Verify date → Search → Report.
+* **Phase 5.** Verify Report Viewer → Export To → CSV → Save.
+* **Phase 6.** Harden folder creation, verification, error recovery on the real app.
+* **Phase 7.** Package as `NS-Retail-Report-Automation.exe`.

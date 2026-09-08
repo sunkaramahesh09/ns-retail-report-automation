@@ -1,0 +1,12 @@
+# Runtime dependencies.
+#
+# The Windows automation packages install only on Windows, so this file can be
+# installed on macOS as well (they are simply skipped there).
+
+pywinauto>=0.6.8 ; sys_platform == "win32"
+pywin32>=306 ; sys_platform == "win32"
+comtypes>=1.2.0 ; sys_platform == "win32"
+
+# Optional: only needed when login.credential_source is "keyring"
+# (reads the password from the Windows Credential Manager).
+keyring>=24.0 ; sys_platform == "win32"

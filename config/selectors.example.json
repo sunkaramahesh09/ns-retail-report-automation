@@ -1,0 +1,139 @@
+{
+  "_README": [
+    "This file tells the automation HOW TO FIND each NS Retail control.",
+    "It is EMPTY ON PURPOSE: NS Retail v4.0.3 has not been inspected yet, and",
+    "this project never guesses automation ids, control names or coordinates.",
+    "",
+    "How to fill it in (on the Windows PC, Phase 2):",
+    "  1. Start NS Retail and log in.",
+    "  2. python -m ns_retail_automation.inspect --windows",
+    "       -> copy the main window title into windows.main.title_re",
+    "  3. Put NS Retail on the screen you want to map, then run:",
+    "       python -m ns_retail_automation.inspect --delay 5",
+    "       (click the NS Retail window during the countdown)",
+    "  4. Copy the printed selector suggestions into the matching step below.",
+    "  5. Repeat for the Report Viewer and the save dialog.",
+    "  6. Copy this file to config/selectors.json and check it with:",
+    "       ns-retail-automation --check",
+    "",
+    "A target may use any combination of: auto_id, title, title_re,",
+    "control_type, class_name, class_name_re, found_index.",
+    "Actions: invoke (preferred), click, select, expand, set_text, menu_select, wait.",
+    "Set \"optional\": true for a control that is not always present."
+  ],
+
+  "windows": {
+    "_comment": "Identify each window by title/title_re/class_name.",
+    "main": {
+      "title_re": "",
+      "class_name": "",
+      "timeout_seconds": 30
+    },
+    "login": {
+      "title_re": "",
+      "class_name": ""
+    },
+    "report_viewer": {
+      "title_re": "",
+      "class_name": "",
+      "timeout_seconds": 300
+    },
+    "export_dialog": {
+      "title_re": "",
+      "class_name": ""
+    },
+    "save_dialog": {
+      "title_re": "",
+      "class_name": "",
+      "timeout_seconds": 60
+    }
+  },
+
+  "steps": {
+    "_comment": "Each step is a list of controls to act on, in order.",
+
+    "login": {
+      "window": "login",
+      "description": "Type the credentials and press the login button.",
+      "_example": [
+        {"action": "set_text", "auto_id": "<username field>", "value": "{username}"},
+        {"action": "set_text", "auto_id": "<password field>", "value": "{password}"},
+        {"action": "invoke", "title": "<login button>", "control_type": "Button"}
+      ],
+      "targets": []
+    },
+
+    "open_reports": {
+      "window": "main",
+      "description": "Open the Reports section of NS Retail.",
+      "targets": []
+    },
+
+    "open_stock_reports": {
+      "window": "main",
+      "description": "Open Stock Reports.",
+      "targets": []
+    },
+
+    "select_purchase_report": {
+      "window": "main",
+      "description": "Select the Purchases report.",
+      "targets": []
+    },
+
+    "set_date": {
+      "window": "main",
+      "description": "Type the report date. Placeholders: {date_dd_mm_yyyy}, {date_dd_mm_yyyy_slashes}, {date_iso}, {dd}, {mm}, {yyyy}.",
+      "_example": [
+        {"action": "set_text", "auto_id": "<from date field>", "value": "{date_dd_mm_yyyy}"},
+        {"action": "set_text", "auto_id": "<to date field>", "value": "{date_dd_mm_yyyy}"}
+      ],
+      "targets": []
+    },
+
+    "search": {
+      "window": "main",
+      "description": "Press Search.",
+      "targets": []
+    },
+
+    "generate_report": {
+      "window": "main",
+      "description": "Press Report. The Report Viewer window is waited for afterwards.",
+      "targets": []
+    },
+
+    "export_to": {
+      "window": "report_viewer",
+      "description": "Open 'Export To' in the Report Viewer.",
+      "targets": []
+    },
+
+    "choose_csv_format": {
+      "window": "report_viewer",
+      "description": "Choose the CSV format.",
+      "targets": []
+    },
+
+    "confirm_export": {
+      "window": "report_viewer",
+      "description": "Press OK to confirm the export format.",
+      "targets": []
+    },
+
+    "save_set_path": {
+      "window": "save_dialog",
+      "description": "Type the destination. Placeholders: {destination_path}, {destination_folder}, {filename}, {filename_stem}.",
+      "_example": [
+        {"action": "set_text", "control_type": "Edit", "auto_id": "1001", "value": "{destination_path}"}
+      ],
+      "targets": []
+    },
+
+    "save_confirm": {
+      "window": "save_dialog",
+      "description": "Press Save.",
+      "targets": []
+    }
+  }
+}

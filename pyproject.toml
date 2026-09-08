@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ns-retail-report-automation"
+version = "0.1.0"
+description = "Automates NS Retail report generation and CSV filing on Windows."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    'pywinauto>=0.6.8 ; sys_platform == "win32"',
+    'pywin32>=306 ; sys_platform == "win32"',
+    'comtypes>=1.2.0 ; sys_platform == "win32"',
+]
+
+[project.optional-dependencies]
+keyring = ['keyring>=24.0 ; sys_platform == "win32"']
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+ns-retail-automation = "ns_retail_automation.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "windows: tests that need a real Windows desktop with NS Retail installed",
+]
