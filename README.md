@@ -158,6 +158,22 @@ scripts\inspect_windows.bat purchases      REM capture one screen to docs\captur
 
 A real run only works once `config/selectors.json` is filled in (Phase 2 below).
 
+**PowerShell note.** PowerShell blocks virtual-environment activation by
+default. Either allow it for the current window:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+…or skip activation entirely and call the interpreter directly — this always
+works, in any shell:
+
+```bat
+.venv\Scripts\python.exe -m ns_retail_automation --dry-run
+.venv\Scripts\python.exe -m pytest -q
+```
+
 ## On Windows: inspecting NS Retail (Phase 2)
 
 The inspection tool is **read-only** — it never clicks, types or closes
