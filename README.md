@@ -144,14 +144,36 @@ Windows paths such as `D:\...` are understood on macOS too (as
 
 ## Run it on the Windows PC
 
-Copy the whole project folder over, then from a Command Prompt inside it:
+Download the project as a ZIP from GitHub (green **Code** button → **Download
+ZIP**), extract it to a short path such as `C:\nsretail`, then open **Command
+Prompt** in that folder (type `cmd` in Explorer's address bar) and run:
 
 ```bat
 scripts\setup_windows.bat
 ```
 
-That creates `.venv`, installs the packages, copies the example config files and
-finishes with `ns-retail-automation --check`. After that:
+That creates `.venv`, installs the packages, creates your settings file and
+finishes with `--check`. It is safe to run again at any time.
+
+**Your settings live outside the project folder**, at
+`%USERPROFILE%\.ns_retail_automation\config.json`, so downloading a newer ZIP
+never wipes them. Edit them with `scripts\edit_settings.bat`.
+
+**Updating from a new ZIP:** extract it over the same folder and choose
+*Replace the files in the destination*. `.venv` and your settings are untouched;
+re-run `scripts\setup_windows.bat` afterwards only if the requirements changed.
+
+Handy wrappers:
+
+```bat
+scripts\edit_settings.bat                REM open your settings in Notepad
+scripts\run_report.bat                   REM dry run for yesterday
+scripts\run_report.bat go                REM real run for yesterday
+scripts\run_report.bat go 08-09-2026     REM real run for one date
+scripts\inspect_windows.bat              REM list windows (read-only)
+```
+
+After that:
 
 ```bat
 .venv\Scripts\activate
