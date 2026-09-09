@@ -54,6 +54,7 @@ STEP_CHOOSE_CSV = "choose_csv_format"
 STEP_CONFIRM_EXPORT = "confirm_export"
 STEP_SAVE_SET_PATH = "save_set_path"
 STEP_SAVE_CONFIRM = "save_confirm"
+STEP_DISMISS_OPEN_PROMPT = "dismiss_open_prompt"
 STEP_LOGIN = "login"
 
 PURCHASE_REPORT_STEPS = (
@@ -275,6 +276,14 @@ class NSRetailAutomation:
         date fields, Search, Report - and the run stops. Starting from a clean
         state keeps the hundredth run identical to the first.
         """
+        # A leftover Preview (from a run that was interrupted after
+        # generate_report) sits on top of the MDI area and blocks focus on
+        # whatever loads underneath it - closing report screens, selecting a
+        # report, and setting the date have each failed on this in testing,
+        # depending on which one happened to run first. Close it before
+        # anything else, not just right before generating a new report.
+        self._close_existing_preview()
+
         if not self.selectors.has_step(STEP_CLOSE_REPORT_SCREENS):
             return
         logger.info("Closing any report screens left open")
@@ -410,7 +419,11 @@ class NSRetailAutomation:
         save_spec = self.selectors.window("save_dialog")
         save_timeout = save_spec.timeout_seconds or timeouts.window_seconds
         try:
-            save_dialog = self.backend.wait_for_window(save_spec, timeout=save_timeout)
+            if save_spec.inside:
+                parent = self._window_by_key(save_spec.inside)
+                save_dialog = self.backend.wait_for_child_window(parent, save_spec, timeout=save_timeout)
+            else:
+                save_dialog = self.backend.wait_for_window(save_spec, timeout=save_timeout)
         except AutomationError as exc:
             raise ExportError(
                 f"The save dialog did not appear within {save_timeout:.0f} seconds.",
@@ -433,6 +446,12 @@ class NSRetailAutomation:
         logger.info("Waiting for the exported file to be written")
         created = wait_for_file(target, timeout=timeouts.file_seconds)
         logger.info("File created successfully: %s", created)
+
+        # NS Retail asks "Do you want to open this file?" after every export.
+        # Answering it keeps the Preview usable for close_report_screens on
+        # the next run instead of leaving it disabled behind this prompt.
+        self._run_step(STEP_DISMISS_OPEN_PROMPT, window=viewer, timeout=timeouts.control_seconds)
+
         return created
 
     def run_named_step(self, name: str, *, report_date: date | None = None) -> None:

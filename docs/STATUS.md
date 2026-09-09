@@ -1,37 +1,29 @@
 # Where this project stands
 
-Last updated: 2026-09-09, end of the mapping session.
+Last updated: 2026-09-09, after the first fully successful end-to-end runs.
 
-## What works, verified against NS Retail v4.0.3
-
-Run against the real application on the Windows PC, not just written:
-
-| Step | State |
-|---|---|
-| detect / reuse a running NS Retail, connect to the main window | verified |
-| `open_reports` — Reports tab on the ribbon | verified |
-| `open_stock_reports` — Stock Reports button | verified |
-| `set_date` — both date pickers, read back afterwards | verified |
-| `open_column_settings` — F3 opens the Include/Exclude dialog | verified |
-| `apply_and_search` — Apply and Search inside that dialog | verified |
-| `export_to` → `choose_csv_format` → `confirm_export` | verified as a chain |
-| destination folder + filename logic, dry run | verified |
-
-Mapped from inspection but not yet exercised end to end:
-`close_report_screens`, `select_purchase_report`, `include_all_columns`,
-`generate_report`, `save_set_path`, `save_confirm`.
-
-## What has never run yet
-
-The **full end-to-end run**:
+## The full end-to-end run works
 
 ```bat
 scripts\run_report.bat go 08-09-2026
 ```
 
-The last attempt stopped at `close_report_screens` and `select_purchase_report`
-because the actions that tolerate duplicate controls were dispatched after the
-check that forbids duplicates. Fixed in 0.4.1; not retried since.
+Run twice against the real application (NS Retail v4.0.3) with no manual
+intervention, start to finish, each in under two minutes:
+
+* `07-09-2026` (a date with no existing file) — completed, file verified on
+  disk (130,976 bytes), exit code 0.
+* `08-09-2026` (a date already exported) — correctly refused to touch it and
+  exited with code 3 ("A report already exists... Nothing was changed"),
+  without even opening NS Retail. This is the `skip` default working as
+  intended, not a bug.
+
+Every step of the workflow is now verified against the real application:
+detect/reuse NS Retail, `close_report_screens`, `open_reports`,
+`open_stock_reports`, `select_purchase_report`, `set_date`,
+`open_column_settings`, `include_all_columns`, `apply_and_search`,
+`generate_report`, `export_to`, `choose_csv_format`, `confirm_export`,
+`save_set_path`, `save_confirm`, `dismiss_open_prompt`, file verification.
 
 ## Things learned about NS Retail that the code depends on
 
@@ -51,13 +43,43 @@ check that forbids duplicates. Fixed in 0.4.1; not retried since.
 * The report preview also stays open after an export. It is closed before
   generating, otherwise the next run would export the previous day's report
   under today's name.
-* The export format list is **invisible to UI Automation** - a scan of every
-  open window with the menu on screen found none of its entries. The split
-  button repeats the last-used format, which is CSV at this site, so the
-  automation uses that and verifies it twice: the options dialog must be the
-  CSV one, and the save dialog's file type must say CSV. The keyboard route
-  (`{UP 12}{DOWN 7}{ENTER}` at 0.4s per key) is recorded in the selector file
-  as a fallback.
+* The export format list is **invisible to UI Automation** (0 descendants
+  under the popup's MenuBar), but it is a **fixed 10-entry list**, always in
+  this order: PDF, HTML, MHT, RTF, DOCX, XLS, XLSX, CSV, Text, Image — CSV is
+  always the 8th (index 7). Confirmed from a screenshot of the open menu, not
+  guessed. An earlier "most-recently-used ordering" theory was wrong; it was
+  concluded from a trial-and-error loop whose own repeated selections kept
+  promoting whatever it tried, which is what actually looked like reordering.
+  `export_to` now opens the dropdown and sends `{HOME}{HOME}{DOWN 7}{ENTER}`
+  directly (the doubled Home absorbs the popup's render time — without it,
+  the first few keystrokes land before the menu can accept them and the
+  selection undershoots). `choose_csv_format` still verifies the resulting
+  dialog really says CSV, so a future menu change fails loudly instead of
+  silently exporting the wrong format.
+* **A leftover Preview window from an interrupted run blocks whatever the
+  next run does first** — it sits on top of the MDI area and disables
+  everything under it, so depending on timing the next run has failed at
+  `set_date`, `select_purchase_report`, or `export_to`, which looked like
+  three unrelated bugs before the common cause was found. Fixed by closing
+  any existing Preview at the very start of `close_report_screens()`, not
+  only right before generating a new report.
+* The Windows **Save As dialog is a child of the Preview window**, not a
+  top-level window — `export_csv()` was searching for it with a top-level-only
+  desktop search and would never find it, no matter the timeout. Fixed to use
+  `wait_for_child_window` when the selector says `"inside"`.
+* Setting the Save As dialog's File name box via UI Automation's `ValuePattern`
+  (`set_edit_text`) **passes its own readback check but does not update the
+  dialog's actual committed filename** — confirmed live: the box visibly
+  showed the full target path, yet clicking Save opened a "Document.csv
+  already exists?" prompt for the file's old default name. `save_set_path`
+  now sends real keystrokes (`^a{destination_path}`, select-all then type)
+  instead, which the dialog does honor.
+* NS Retail asks **"Do you want to open this file?"** after every export.
+  `dismiss_open_prompt` clicks No, so the Preview stays usable for the next
+  run instead of sitting disabled behind an unanswered prompt.
+* `select_purchase_report`'s wait target was an auto_id (`ucPurchases`) that
+  does not exist on the live screen — the screen loaded fine, the wait just
+  never matched. Corrected to `layoutControl1`, the screen's real root pane.
 * The Include/Exclude grid reports each cell as `Checked` / `Unchecked`, so
   only unticked rows are touched and rows are paged through as the grid only
   loads what is visible.
@@ -80,10 +102,7 @@ project folder, so re-downloading the project never wipes them.
 
 ## Next steps
 
-1. Run the full workflow end to end and fix whatever it finds.
-2. Map `login` if unattended running is wanted later.
-3. Decide whether the automation should close the preview and report screen
-   when it finishes, so the app is left clean.
-4. Package as `NS-Retail-Report-Automation.exe` with PyInstaller (Phase 7).
-5. Set up the office PC: VC++ redistributable, Python 3.12, then
+1. Map `login` if unattended running is wanted later.
+2. Package as `NS-Retail-Report-Automation.exe` with PyInstaller (Phase 7).
+3. Set up the office PC: VC++ redistributable, Python 3.12, then
    `scripts\setup_windows.bat` and set the base path.

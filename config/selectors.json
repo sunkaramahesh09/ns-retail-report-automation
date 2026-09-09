@@ -38,7 +38,7 @@
       "title": "Save As",
       "class_name": "#32770",
       "control_type": "Window",
-      "timeout_seconds": 60
+      "timeout_seconds": 120
     },
     "column_settings": {
       "_status": "CONFIRMED 2026-09-09 - child window of frmMain, auto_id frmIncludeExclude.",
@@ -106,7 +106,7 @@
     },
     "select_purchase_report": {
       "window": "main",
-      "description": "VERIFIED 2026-09-09 live - the earlier assumption (Stock Reports opens Purchases directly) was wrong: it opens a report catalog tree (auto_id tlReport, inside dpLeft) listing 19 report types. 'Purchases' is the DataItem with value 'Purchases' inside TreeItem 'Node8' (index-based, since the row has no auto_id or stable text - its UIA Name is 'Report row 8', the visible text 'Purchases' is only in its Value property). Clicking that TreeItem loads the Purchases criteria screen. The wait below is the real safety net: if the catalog's row order ever changes, this stops loudly here instead of silently searching the wrong report.",
+      "description": "VERIFIED 2026-09-09 live - the earlier assumption (Stock Reports opens Purchases directly) was wrong: it opens a report catalog tree (auto_id tlReport, inside dpLeft) listing 19 report types. 'Purchases' is the DataItem with value 'Purchases' inside TreeItem 'Node8' (index-based, since the row has no auto_id or stable text - its UIA Name is 'Report row 8', the visible text 'Purchases' is only in its Value property). Clicking that TreeItem loads the Purchases criteria screen. The wait below is the real safety net: if the catalog's row order ever changes, this stops loudly here instead of silently searching the wrong report. CORRECTED 2026-09-09: the wait target was 'ucPurchases', an auto_id that does not actually exist on the live screen (confirmed by a live inspection while the screen was open and fully loaded - Node8 had already been clicked successfully). The screen's real, always-present root is layoutControl1 (the same Pane that holds btnSearch/btnReport/dpTop), so the wait now targets that instead.",
       "targets": [
         {
           "action": "click",
@@ -120,7 +120,7 @@
         {
           "action": "wait",
           "description": "the Purchases criteria screen",
-          "auto_id": "ucPurchases",
+          "auto_id": "layoutControl1",
           "control_type": "Pane",
           "timeout_seconds": 30
         }
@@ -226,21 +226,23 @@
     },
     "export_to": {
       "window": "report_viewer",
-      "description": "VERIFIED 2026-09-09 live, twice - the earlier assumption (clicking the split button's face repeats CSV because that is always the last-used format at this site) was wrong: the first end-to-end attempt exported a PDF. A fixed keyboard position was tried next (Home, then one Down, then Enter) and worked once ('CSV Export Options'), but failed the very next run, landing on 'HTML Export Options' instead - re-enumerating the menu from Home showed a DIFFERENT format at every position than the first enumeration had found there, which looks like a most-recently-used ordering rather than a fixed list. Its entries are invisible to UI Automation either way (0 descendants under the popup's MenuBar, confirmed live), so there is no way to read the order back and pick the right position directly. Instead this opens the dropdown, tries Home+Enter, Home+Down 1+Enter, Home+Down 2+Enter, ... reading the title of whichever Options dialog each one opens, cancelling and trying the next position until one says 'CSV'. See action 'select_export_format' in windows.py.",
+      "description": "CORRECTED 2026-09-09 from a screenshot of the actual open menu (docs/captures - the operator captured it directly instead of guessing from automation). The list is a FIXED 10 entries, always in this order: PDF, HTML, MHT, RTF, DOCX, XLS, XLSX, CSV, Text, Image - CSV is always the 8th (index 7). The earlier 'most-recently-used ordering' theory was wrong; it was concluded from a trial loop whose own repeated selections were themselves corrupting later trials in ways that were never actually isolated from a stable baseline. Menu entries are still invisible to UI Automation (0 descendants under the popup's MenuBar, confirmed live), so this is a fixed keyboard position - Home, Down x7, Enter - not a read-and-match. choose_csv_format (next step) still verifies the resulting dialog really says CSV, so a future menu change fails loudly instead of silently exporting the wrong format.",
       "targets": [
         {
-          "action": "select_export_format",
-          "description": "Export To dropdown - try each entry until its Options dialog says CSV",
+          "action": "invoke",
+          "description": "Export To dropdown arrow",
           "title": "Open",
           "control_type": "Button",
           "parent": {
             "title": "Export To",
             "control_type": "SplitButton"
-          },
-          "value": "CSV",
-          "result_auto_id": "LinesForm",
-          "result_control_type": "Window",
-          "max_tries": 20,
+          }
+        },
+        {
+          "action": "send_keys",
+          "description": "Home (sent twice to let the popup finish rendering before navigating), down to CSV (8th entry), Enter",
+          "value": "{HOME}{HOME}{DOWN 7}{ENTER}",
+          "focus": false,
           "pause_seconds": 0.4
         }
       ]
@@ -273,7 +275,7 @@
     },
     "save_set_path": {
       "window": "save_dialog",
-      "description": "CONFIRMED 2026-09-09 - checks the dialog really is saving CSV, then types the full destination into the File name box (Edit auto_id 1001). A Windows save dialog accepts a complete path, so no folder navigation is needed; the folder is created by the automation beforehand.",
+      "description": "CONFIRMED 2026-09-09 - checks the dialog really is saving CSV, then types the full destination into the File name box (Edit auto_id 1001). A Windows save dialog accepts a complete path, so no folder navigation is needed; the folder is created by the automation beforehand. CORRECTED 2026-09-09: the File name target used 'set_text', whose UI-Automation ValuePattern set passed its own readback check (the box visibly showed the right path) but did NOT update the Explorer common dialog's actual committed filename - confirmed live by a 'Document.csv already exists?' prompt appearing after Save was clicked, even though the box read back the full target path. Switched to real keystrokes (select-all, then type), which this dialog does honor.",
       "targets": [
         {
           "action": "verify_text",
@@ -283,11 +285,11 @@
           "value": "csv"
         },
         {
-          "action": "set_text",
-          "description": "File name",
+          "action": "send_keys",
+          "description": "File name (real keystrokes: select all, then type - a ValuePattern set does not update this dialog's committed filename)",
           "auto_id": "1001",
           "control_type": "Edit",
-          "value": "{destination_path}"
+          "value": "^a{destination_path}"
         }
       ]
     },
@@ -301,6 +303,23 @@
           "auto_id": "1",
           "control_type": "Button",
           "title": "Save"
+        }
+      ]
+    },
+    "dismiss_open_prompt": {
+      "window": "report_viewer",
+      "description": "CONFIRMED 2026-09-09 - after every export NS Retail shows its own 'Export' dialog asking 'Do you want to open this file?'. The operator's routine is to say No (the file only needs to be saved, not opened) - saying Yes would launch a viewer for it and leave that extra window open too. Marked optional: on at least one run this session it appeared, but nothing guarantees every NS Retail build/version shows it.",
+      "targets": [
+        {
+          "action": "invoke",
+          "description": "No",
+          "title": "No",
+          "control_type": "Button",
+          "parent": {
+            "title": "Export",
+            "control_type": "Window"
+          },
+          "optional": true
         }
       ]
     }

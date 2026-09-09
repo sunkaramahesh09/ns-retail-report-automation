@@ -732,11 +732,14 @@ class WindowsBackend(AutomationBackend):
                 dialog_spec.child_window(
                     auto_id="btnCancel", control_type="Button"
                 ).wrapper_object().click_input()
-            except Exception as exc:  # noqa: BLE001 - report what went wrong
-                raise ControlNotFoundError(
-                    f"Could not cancel the '{title}' dialog while looking for "
-                    f"'{target.value}': {exc}"
-                ) from exc
+            except Exception as exc:  # noqa: BLE001 - Escape is the fallback
+                logger.warning(
+                    "Could not click Cancel on the '%s' dialog (%s) - sending "
+                    "Escape instead",
+                    title,
+                    exc,
+                )
+                send_keys("{ESC}", pause=pause)
             time.sleep(0.4)
 
         raise ControlNotFoundError(
