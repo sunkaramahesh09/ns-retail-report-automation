@@ -533,10 +533,18 @@ class WindowsBackend(AutomationBackend):
                 ) from exc
             return
 
+        # These two are handled before a single control is resolved: one exists
+        # to deal with duplicates, and the other only asks whether the control
+        # is there at all. Demanding a unique match first would defeat both.
+        if action == "invoke_until_gone":
+            self._invoke_until_gone(window, target)
+            return
+        if action == "wait":
+            self._wait_for_any(window, target, effective_timeout)
+            return
+
         wrapper = self._control(window, target, effective_timeout)
 
-        if action == "wait":
-            return
         if action == "invoke":
             self._invoke(wrapper, target)
             return
@@ -553,9 +561,6 @@ class WindowsBackend(AutomationBackend):
                 raise ControlNotFoundError(
                     f"Could not select '{target.value or target.label()}': {exc}"
                 ) from exc
-            return
-        if action == "invoke_until_gone":
-            self._invoke_until_gone(window, target)
             return
         if action == "verify_text":
             actual = self._read_text(wrapper)
@@ -624,6 +629,19 @@ class WindowsBackend(AutomationBackend):
                 f"Could not type '{value}' into '{target.label()}': {exc}"
             ) from exc
         self._confirm_text(wrapper, target, value, before, "type_keys")
+
+    def _wait_for_any(self, window: WindowRef, target: UiTarget, timeout: float) -> None:
+        """Wait until at least one control matches. Several is still a yes."""
+        deadline = time.monotonic() + timeout
+        while True:
+            if self.control_exists(window, target, timeout=0.5):
+                return
+            if time.monotonic() >= deadline:
+                raise ControlNotFoundError(
+                    f"'{target.label()}' did not appear within {timeout:.0f} seconds.",
+                    hint=self._not_found_hint(window),
+                )
+            time.sleep(0.3)
 
     def _invoke_until_gone(self, window: WindowRef, target: UiTarget) -> None:
         """Invoke every control matching the target, until none are left.
