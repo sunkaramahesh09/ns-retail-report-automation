@@ -282,9 +282,16 @@ class WindowsBackend(AutomationBackend):
         )
 
     # -- controls --------------------------------------------------------
+    def _container(self, window: WindowRef, target: UiTarget) -> Any:
+        """The window, or a nested control the search is scoped to."""
+        parent = target.parent_criteria()
+        if not parent:
+            return window.native
+        return window.native.child_window(**parent)
+
     def _control(self, window: WindowRef, target: UiTarget, timeout: float) -> Any:
         criteria = target.search_criteria()
-        control = window.native.child_window(**criteria)
+        control = self._container(window, target).child_window(**criteria)
         try:
             control.wait(DEFAULT_CONTROL_STATES, timeout=timeout, retry_interval=0.3)
         except self._timeout_error_types() as exc:
@@ -303,7 +310,7 @@ class WindowsBackend(AutomationBackend):
     ) -> bool:
         ensure_available()
         try:
-            control = window.native.child_window(**target.search_criteria())
+            control = self._container(window, target).child_window(**target.search_criteria())
             return bool(control.exists(timeout=max(timeout, 0.1), retry_interval=0.2))
         except self._timeout_error_types():
             return False
@@ -354,6 +361,13 @@ class WindowsBackend(AutomationBackend):
             return
         if action == "set_text":
             self._set_text(wrapper, target)
+            return
+        if action == "send_keys":
+            try:
+                wrapper.set_focus()
+            except Exception as exc:  # noqa: BLE001 - focus is best effort
+                logger.debug("Could not focus %s: %s", target.label(), exc)
+            wrapper.type_keys(target.value, with_spaces=True, set_foreground=True)
             return
 
         raise ControlNotFoundError(f"Unsupported action '{action}' for {target.label()}.")

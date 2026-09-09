@@ -24,8 +24,20 @@ VALID_ACTIONS = (
     "select",         # select an item in a list / combo / tab
     "expand",         # expand a menu or tree node
     "set_text",       # type a value into an edit control
+    "send_keys",      # send keystrokes to the control, e.g. "{TAB}" or "^a"
     "menu_select",    # walk a classic menu path, e.g. "Reports->Stock Reports"
     "wait",           # only wait for the control to exist (no interaction)
+)
+
+#: Criteria accepted inside a target's "parent" block.
+PARENT_CRITERIA_FIELDS = (
+    "auto_id",
+    "title",
+    "title_re",
+    "control_type",
+    "class_name",
+    "class_name_re",
+    "found_index",
 )
 
 #: Named windows a step can be scoped to.
@@ -49,6 +61,14 @@ class UiTarget:
     value: str = ""
     optional: bool = False
     timeout_seconds: float | None = None
+    #: Optional container to search inside. Use it when the control itself has
+    #: no stable identity - NS Retail's date fields hold an Edit whose
+    #: automation id is a window handle and changes on every launch, but their
+    #: parent ComboBox is reliably "dtpFromDate" / "dtpToDate".
+    parent: dict[str, Any] = field(default_factory=dict)
+
+    def parent_criteria(self) -> dict[str, Any]:
+        return {k: v for k, v in self.parent.items() if k in PARENT_CRITERIA_FIELDS and v != ""}
 
     def search_criteria(self) -> dict[str, Any]:
         """Translate to pywinauto ``child_window`` keyword arguments."""
@@ -73,7 +93,11 @@ class UiTarget:
         if self.description:
             return self.description
         parts = [f"{k}={v!r}" for k, v in self.search_criteria().items()]
-        return ", ".join(parts) or "(no criteria)"
+        label = ", ".join(parts) or "(no criteria)"
+        if self.parent:
+            inside = ", ".join(f"{k}={v!r}" for k, v in self.parent_criteria().items())
+            label = f"{label} inside [{inside}]"
+        return label
 
     def validate(self, where: str) -> None:
         if self.action not in VALID_ACTIONS:
@@ -89,10 +113,21 @@ class UiTarget:
                     "control_type or class_name."
                 ),
             )
-        if self.action in ("set_text", "menu_select") and not self.value:
+        if self.action in ("set_text", "send_keys", "menu_select") and not self.value:
             raise ConfigError(
                 f"{where}: action '{self.action}' needs a 'value'."
             )
+        if self.parent:
+            if not isinstance(self.parent, dict):
+                raise ConfigError(f"{where}: 'parent' must be an object.")
+            unknown = set(self.parent) - set(PARENT_CRITERIA_FIELDS)
+            if unknown:
+                raise ConfigError(
+                    f"{where}: unknown field(s) in 'parent': {', '.join(sorted(unknown))}.",
+                    hint="Allowed: " + ", ".join(PARENT_CRITERIA_FIELDS),
+                )
+            if not self.parent_criteria():
+                raise ConfigError(f"{where}: 'parent' has no usable criteria.")
 
 
 @dataclass(frozen=True)

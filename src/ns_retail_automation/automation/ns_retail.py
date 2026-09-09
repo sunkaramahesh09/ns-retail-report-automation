@@ -29,6 +29,7 @@ from ..errors import (
     ReportViewerError,
     SelectorNotConfiguredError,
 )
+from ..utils.dates import MONTH_NAMES
 from ..utils.retry import retry_call
 from ..utils.waits import wait_for_file
 from .base import AutomationBackend, ProcessInfo, WindowRef
@@ -332,6 +333,26 @@ class NSRetailAutomation:
         logger.info("File created successfully: %s", created)
         return created
 
+    def run_named_step(self, name: str, *, report_date: date | None = None) -> None:
+        """Run one step on its own, for testing a newly mapped selector.
+
+        This really does interact with NS Retail - it is the same code the full
+        workflow uses, just for a single step.
+        """
+        context = _date_context(report_date) if report_date else None
+        logger.info("Running single step '%s'", name)
+        self._run_step(name, context=context)
+
+    def step_status(self, steps: tuple[str, ...] = PURCHASE_REPORT_STEPS) -> list[tuple[str, bool, str]]:
+        """(name, mapped, description) for each step of the workflow."""
+        status: list[tuple[str, bool, str]] = []
+        for name in steps:
+            step = self.selectors.steps.get(name)
+            mapped = step is not None and step.is_configured()
+            description = step.description if step is not None else ""
+            status.append((name, mapped, description))
+        return status
+
     # ------------------------------------------------------------------
     # Step plumbing
     # ------------------------------------------------------------------
@@ -396,8 +417,18 @@ class NSRetailAutomation:
 
 
 def _date_context(report_date: date) -> dict[str, str]:
-    """Placeholders a date field can be filled with."""
+    """Placeholders a date field can be filled with.
+
+    ``date_dd_month_yyyy`` matches how NS Retail displays a date in its date
+    pickers ("08 September 2026"). The month name is spelled out from a fixed
+    English table rather than strftime, so the machine's locale cannot change
+    what gets typed.
+    """
+    month = MONTH_NAMES[report_date.month - 1].capitalize()
     return {
+        "date_dd_month_yyyy": f"{report_date.day:02d} {month} {report_date.year}",
+        "date_d_month_yyyy": f"{report_date.day} {month} {report_date.year}",
+        "month_name": month,
         "date_iso": report_date.isoformat(),
         "date_dd_mm_yyyy": report_date.strftime("%d-%m-%Y"),
         "date_dd_mm_yyyy_dots": report_date.strftime("%d.%m.%Y"),

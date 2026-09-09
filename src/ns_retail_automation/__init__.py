@@ -7,5 +7,5 @@ The automation itself only runs on Windows; the date, folder, configuration and
 logging logic runs anywhere, so the project can be developed on macOS.
 """
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 __all__ = ["__version__"]

@@ -60,6 +60,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="show the date, folder and filename that would be used; do not touch NS Retail",
     )
     parser.add_argument("--check", action="store_true", help="report what is ready and what is not, then exit")
+    parser.add_argument("--list-steps", action="store_true", help="list the workflow steps and whether each is mapped")
+    parser.add_argument(
+        "--try-step",
+        metavar="STEP",
+        help=(
+            "run ONE step against the running NS Retail, for testing a newly "
+            "mapped selector (this does click in the application)"
+        ),
+    )
     parser.add_argument("--list-reports", action="store_true", help="list the configured reports and exit")
     parser.add_argument(
         "--inspect",
@@ -104,6 +113,10 @@ def main(argv: list[str] | None = None) -> int:
             return _list_reports(settings)
         if args.check:
             return _check(settings, args)
+        if args.list_steps:
+            return _list_steps(settings, args)
+        if args.try_step:
+            return _try_step(settings, args)
 
         job, report_date = _prepare(settings, args)
         if args.dry_run:
@@ -228,6 +241,54 @@ def _check(settings: Settings, args: argparse.Namespace) -> int:
             "'python -m ns_retail_automation.inspect --windows', then inspect each "
             "NS Retail screen and record the controls in config/selectors.json."
         )
+    return EXIT_OK
+
+
+def _build_automation(settings: Settings, args: argparse.Namespace) -> NSRetailAutomation:
+    backend = get_backend(settings.application.ui_backend)
+    selectors = load_selectors(args.selectors)
+    return NSRetailAutomation(settings, selectors, backend)
+
+
+def _list_steps(settings: Settings, args: argparse.Namespace) -> int:
+    automation = _build_automation(settings, args)
+    print("Workflow steps (in order):\n")
+    for name, mapped, description in automation.step_status():
+        mark = "mapped    " if mapped else "NOT MAPPED"
+        print(f"  [{mark}] {name}")
+        if description:
+            print(f"               {description}")
+    print("\nTest one step against the running NS Retail with:")
+    print("  ns-retail-automation --try-step open_reports")
+    return EXIT_OK
+
+
+def _try_step(settings: Settings, args: argparse.Namespace) -> int:
+    """Run a single step, so a new selector can be verified on its own."""
+    automation = _build_automation(settings, args)
+    name = args.try_step
+
+    if not automation.backend.is_supported:
+        raise AutomationError(
+            "NS Retail automation is not available on this computer.",
+            hint="Run this on the Windows PC where NS Retail is installed.",
+        )
+
+    report_date = None
+    if args.date:
+        dates = DateManager(
+            fiscal_year_start_month=settings.dates.fiscal_year_start_month,
+            fiscal_year_label_format=settings.dates.fiscal_year_label_format,
+        )
+        report_date = dates.resolve(args.date)
+
+    print(f"Connecting to {settings.application.name} ...")
+    automation.launch()
+    automation.connect()
+    print(f"Running step '{name}' ...")
+    automation.run_named_step(name, report_date=report_date)
+    print(f"\nStep '{name}' finished without an error.")
+    print("Check NS Retail on screen to confirm it did what you expected.")
     return EXIT_OK
 
 
