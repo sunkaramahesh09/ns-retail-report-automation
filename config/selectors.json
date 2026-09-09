@@ -33,9 +33,10 @@
       "timeout_seconds": 300
     },
     "save_dialog": {
-      "_status": "CONFIRMED 2026-09-09 - the Windows 'Save As' dialog appears inside the Preview window's tree, not as a top-level window.",
+      "_status": "CONFIRMED 2026-09-09 - the Windows 'Save As' dialog (class #32770) appears inside the Preview window's tree rather than as a top-level window.",
       "inside": "report_viewer",
       "title": "Save As",
+      "class_name": "#32770",
       "control_type": "Window",
       "timeout_seconds": 60
     },
@@ -237,8 +238,16 @@
     },
     "save_confirm": {
       "window": "save_dialog",
-      "description": "TODO - the Save button in the Save As dialog.",
-      "targets": []
+      "description": "CONFIRMED 2026-09-09 - the Save button (auto_id 1) in the Save As dialog. The ribbon has its own 'Save' button, so this is scoped to the dialog.",
+      "targets": [
+        {
+          "action": "invoke",
+          "description": "Save",
+          "auto_id": "1",
+          "control_type": "Button",
+          "title": "Save"
+        }
+      ]
     }
   }
 }

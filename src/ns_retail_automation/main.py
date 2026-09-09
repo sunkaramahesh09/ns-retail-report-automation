@@ -75,6 +75,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="run the read-only Windows control inspector (further options are passed to it)",
     )
+    parser.add_argument(
+        "--probe",
+        metavar="TEXT",
+        help=(
+            "after --try-step, search every window for controls matching TEXT. "
+            "Use it for menus that close as soon as anything else is clicked"
+        ),
+    )
     parser.add_argument("--yes", action="store_true", help="answer 'yes' to overwrite questions (unattended runs)")
     parser.add_argument("-v", "--verbose", action="store_true", help="log every detail")
     parser.add_argument("-q", "--quiet", action="store_true", help="only show warnings and errors")
@@ -288,6 +296,16 @@ def _try_step(settings: Settings, args: argparse.Namespace) -> int:
     print(f"Running step '{name}' ...")
     automation.run_named_step(name, report_date=report_date)
     print(f"\nStep '{name}' finished without an error.")
+
+    if args.probe:
+        # Whatever the step opened is still on screen and still has focus,
+        # which is the only moment a ribbon popup can be read.
+        from .inspect import search_every_window  # noqa: PLC0415
+
+        print(f"\nLooking for '{args.probe}' in every window ...\n")
+        search_every_window(automation.backend, args.probe, depth=10)
+        return EXIT_OK
+
     print("Check NS Retail on screen to confirm it did what you expected.")
     return EXIT_OK
 
