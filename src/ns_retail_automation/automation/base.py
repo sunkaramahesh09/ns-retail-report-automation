@@ -188,6 +188,10 @@ class AutomationBackend(ABC):
     def active_window(self) -> WindowRef | None:
         ...
 
+    @abstractmethod
+    def window_from_handle(self, handle: int) -> WindowRef | None:
+        """Address a top-level window by its handle, for inspection."""
+
 
 class UnsupportedBackend(AutomationBackend):
     """Stand-in used on macOS/Linux.
@@ -258,3 +262,6 @@ class UnsupportedBackend(AutomationBackend):
 
     def active_window(self):
         return self._fail("find the active window")
+
+    def window_from_handle(self, handle):
+        return self._fail("address a window by its handle")

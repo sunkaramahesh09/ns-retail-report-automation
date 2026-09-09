@@ -788,6 +788,16 @@ class WindowsBackend(AutomationBackend):
             return None
         return self._wrap(wrapper, resolved)
 
+    def window_from_handle(self, handle: int) -> WindowRef | None:
+        ensure_available()
+        try:
+            spec = self.desktop().window(handle=handle)
+            wrapper = spec.wrapper_object()
+        except Exception as exc:  # noqa: BLE001 - the window may have gone
+            logger.debug("Could not address window %s: %s", handle, exc)
+            return None
+        return self._wrap(spec, wrapper)
+
     def describe_window(self, window: WindowRef, *, max_depth: int = 8) -> ControlInfo:
         ensure_available()
         wrapper = window.native.wrapper_object()

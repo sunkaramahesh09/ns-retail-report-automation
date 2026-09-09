@@ -45,8 +45,11 @@
       "timeout_seconds": 30
     },
     "csv_options": {
-      "_status": "TODO - the 'CSV Export Options' dialog (Encoding / Text export mode / separator, OK and Cancel).",
-      "title_re": "CSV Export Options"
+      "_status": "CONFIRMED 2026-09-09 - the 'CSV Export Options' dialog is a child window called LinesForm inside the Preview window, not a top-level dialog. Its OK button still needs a capture.",
+      "inside": "report_viewer",
+      "auto_id": "LinesForm",
+      "control_type": "Window",
+      "timeout_seconds": 60
     }
   },
   "steps": {
@@ -190,8 +193,15 @@
     },
     "export_to": {
       "window": "report_viewer",
-      "description": "TODO - capture the generated report and its Export To control.",
-      "targets": []
+      "description": "CONFIRMED 2026-09-09 - 'Export To' is a SplitButton in the Preview ribbon's Export toolbar. Opening it shows the format list (PDF/HTML/.../CSV).",
+      "targets": [
+        {
+          "action": "invoke",
+          "description": "Export To split button",
+          "title": "Export To",
+          "control_type": "SplitButton"
+        }
+      ]
     },
     "choose_csv_format": {
       "window": "report_viewer",

@@ -231,12 +231,58 @@ def resolve_window(
     return window
 
 
+def search_every_window(backend: AutomationBackend, needle: str, *, depth: int) -> int:
+    """Look for a control across every open window.
+
+    Popup menus and Windows' own dialogs are separate top-level windows, so a
+    search inside the application finds nothing at all - which reads as "the
+    control does not exist" when it is simply somewhere else.
+    """
+    total = 0
+    for info in backend.list_windows():
+        if not info.handle:
+            continue
+        window = backend.window_from_handle(info.handle)
+        if window is None:
+            continue
+        try:
+            tree = backend.describe_window(window, max_depth=depth)
+        except Exception as exc:  # noqa: BLE001 - a window may close mid-scan
+            print(f'(skipped "{info.title}": {exc})')
+            continue
+        matches = [
+            node
+            for node in walk(tree)
+            if needle.lower() in node.name.lower()
+            or needle.lower() in node.automation_id.lower()
+        ]
+        if not matches:
+            continue
+        total += len(matches)
+        print(f'\n=== in window: title="{info.title}"  class="{info.class_name}" ===')
+        print_matches(tree, needle)
+    if total == 0:
+        print(f"No control matched '{needle}' in any open window.")
+    else:
+        print(f"{total} match(es) across all windows.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m ns_retail_automation.inspect",
         description="Read-only inspection of Windows application controls.",
     )
     parser.add_argument("--windows", action="store_true", help="list all top-level windows and exit")
+    parser.add_argument(
+        "--all-windows",
+        action="store_true",
+        help=(
+            "search EVERY top-level window, not just one. Use it for things "
+            "that live outside the application window - a ribbon popup menu, "
+            "or a Windows Save As dialog"
+        ),
+    )
     parser.add_argument("--title-re", help="inspect the window whose title matches this regular expression")
     parser.add_argument("--class-name", help="inspect the window with this window class name")
     parser.add_argument(
@@ -291,6 +337,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.windows:
+            if args.delay:
+                countdown(args.delay, "Open the menu or dialog you want to see")
             print("Top-level windows:\n")
             for window in backend.list_windows():
                 print(
@@ -302,6 +350,14 @@ def main(argv: list[str] | None = None) -> int:
                 '"title_re" of a window in config/selectors.json.'
             )
             return 0
+
+        if args.all_windows:
+            if not args.find:
+                print("--all-windows needs --find TEXT to look for.")
+                return 2
+            if args.delay:
+                countdown(args.delay, "Open the menu or dialog you want to capture")
+            return search_every_window(backend, args.find, depth=args.depth)
 
         window = resolve_window(
             backend,
