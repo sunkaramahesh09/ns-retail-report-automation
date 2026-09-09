@@ -1,7 +1,7 @@
-# Never commit real configuration - it holds site specific paths, and could
-# tempt someone into putting a password in it.
+# config.json holds machine specific paths and is edited on the Windows PC,
+# so it stays local. selectors.json IS tracked: it only describes NS Retail's
+# controls (no paths, no credentials) and is developed here and pulled there.
 config/config.json
-config/selectors.json
 *.local.json
 
 # Never commit credentials

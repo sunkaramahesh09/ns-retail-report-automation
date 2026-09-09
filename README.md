@@ -46,8 +46,12 @@ skipped there.
 
 ```bash
 cp config/config.example.json config/config.json
-cp config/selectors.example.json config/selectors.json
 ```
+
+`config/config.json` stays on your machine (it holds machine specific paths).
+`config/selectors.json` — the NS Retail control mapping — **is tracked in git**,
+so it is developed on the Mac and reaches the Windows PC with `git pull`. It
+holds only window titles and control ids: no paths, no credentials.
 
 Then edit `config/config.json`. The settings that matter first:
 
