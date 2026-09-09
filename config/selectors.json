@@ -36,9 +36,8 @@
       "title_re": ""
     },
     "column_settings": {
-      "_status": "PARTLY CONFIRMED 2026-09-09 - seen on screen as 'Include Exclude Settings'; title still to be verified by inspection",
-      "title_re": "Include Exclude Settings",
-      "timeout_seconds": 30
+      "_status": "CONFIRMED 2026-09-09 - NOT a top-level window: it is a child Window of frmMain with auto_id 'frmIncludeExclude'. Reached through the main window, so no title matching is needed.",
+      "title_re": ""
     }
   },
   "steps": {
@@ -108,28 +107,45 @@
     },
     "open_column_settings": {
       "window": "main",
-      "description": "CONFIRMED by the operator - F3 on the Purchases screen opens the Include/Exclude column dialog.",
+      "description": "VERIFIED workflow step - F3 on the Purchases screen opens the Include/Exclude column dialog. Waits for the dialog to actually appear.",
       "targets": [
         {
           "action": "send_keys",
           "description": "F3 (opens Include Exclude Settings)",
           "value": "{F3}"
+        },
+        {
+          "action": "wait",
+          "description": "the Include Exclude Settings dialog",
+          "auto_id": "frmIncludeExclude",
+          "control_type": "Window",
+          "timeout_seconds": 20
         }
       ]
     },
     "include_all_columns": {
-      "window": "column_settings",
-      "description": "TODO - tick every column in the Include Exclude Settings dialog. Needs a capture of that dialog.",
+      "window": "main",
+      "description": "TODO - tick every column in the Include Exclude Settings dialog. Waiting on a capture of the dialog's grid (scripts\\inspect_dialog.bat frmIncludeExclude).",
       "targets": []
     },
     "apply_and_search": {
-      "window": "column_settings",
-      "description": "TODO - the 'Apply and Search' button in the Include Exclude Settings dialog.",
-      "targets": []
+      "window": "main",
+      "description": "CONFIRMED 2026-09-09 - 'Apply and Search' (auto_id btnApplyAndSearch) inside the frmIncludeExclude dialog. This is what performs the search in the operator's routine - the Search button on the criteria panel is not used.",
+      "targets": [
+        {
+          "action": "invoke",
+          "description": "Apply and Search",
+          "auto_id": "btnApplyAndSearch",
+          "control_type": "Button",
+          "parent": {
+            "auto_id": "frmIncludeExclude"
+          }
+        }
+      ]
     },
     "search": {
       "window": "main",
-      "description": "CONFIRMED - Search button (auto_id btnSearch).",
+      "description": "NOT USED in this workflow - the operator searches from inside the F3 dialog instead. Kept as a verified fallback: btnSearch on the criteria panel. apply_and_search takes precedence whenever it is mapped.",
       "targets": [
         {
           "action": "invoke",

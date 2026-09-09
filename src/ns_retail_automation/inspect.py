@@ -223,6 +223,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--title-re", help="inspect the window whose title matches this regular expression")
     parser.add_argument("--class-name", help="inspect the window with this window class name")
     parser.add_argument(
+        "--child",
+        metavar="AUTO_ID",
+        help=(
+            "inspect a dialog nested inside the window, by its automation id "
+            "(NS Retail's dialogs are child windows, e.g. frmIncludeExclude)"
+        ),
+    )
+    parser.add_argument("--child-title", help="same as --child, but matched on the dialog's name")
+    parser.add_argument(
         "--delay",
         type=float,
         default=5.0,
@@ -280,6 +289,15 @@ def main(argv: list[str] | None = None) -> int:
             class_name=args.class_name,
             delay=args.delay,
         )
+        if args.child or args.child_title:
+            criteria: dict[str, str] = {}
+            if args.child:
+                criteria["auto_id"] = args.child
+            if args.child_title:
+                criteria["title"] = args.child_title
+            window = backend.child_window_ref(window, criteria)
+            print(f"Looking inside the dialog matching {criteria}\n")
+
         print(
             f'Window: title="{window.info.title}"  class="{window.info.class_name}"  '
             f"pid={window.info.process_id}\n"

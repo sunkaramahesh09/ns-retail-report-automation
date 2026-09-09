@@ -261,6 +261,24 @@ class WindowsBackend(AutomationBackend):
                 f"{timeout:.0f} seconds."
             ) from exc
 
+    def child_window_ref(self, window: WindowRef, criteria: dict[str, Any]) -> WindowRef:
+        ensure_available()
+        if not criteria:
+            raise WindowNotFoundError("No criteria were given for the child window.")
+        spec = window.native.child_window(**criteria)
+        described = ", ".join(f"{k}={v!r}" for k, v in criteria.items())
+        try:
+            if not spec.exists(timeout=2.0, retry_interval=0.3):
+                raise WindowNotFoundError(
+                    f"No window inside '{window.info.title}' matched {described}."
+                )
+            wrapper = spec.wrapper_object()
+        except self._timeout_error_types() as exc:
+            raise WindowNotFoundError(
+                f"No window inside '{window.info.title}' matched {described}."
+            ) from exc
+        return self._wrap(spec, wrapper)
+
     def focus_window(self, window: WindowRef) -> None:
         ensure_available()
         try:

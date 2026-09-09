@@ -139,6 +139,14 @@ class AutomationBackend(ABC):
         ...
 
     @abstractmethod
+    def child_window_ref(self, window: WindowRef, criteria: dict[str, Any]) -> WindowRef:
+        """A window nested inside another one.
+
+        NS Retail's dialogs are child windows of the main form rather than
+        top-level windows, so they are addressed this way.
+        """
+
+    @abstractmethod
     def focus_window(self, window: WindowRef) -> None:
         ...
 
@@ -211,6 +219,9 @@ class UnsupportedBackend(AutomationBackend):
 
     def wait_for_window_closed(self, window, *, timeout):
         return self._fail("wait for a window to close")
+
+    def child_window_ref(self, window, criteria):
+        return self._fail("find a window inside another window")
 
     def focus_window(self, window):
         return self._fail("focus a window")
