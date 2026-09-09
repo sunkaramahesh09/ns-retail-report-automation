@@ -40,6 +40,9 @@ DEFAULT_CONTROL_STATES = "exists visible enabled ready"
 #: Safety limit when paging through a grid whose length is not known.
 MAX_GRID_PAGES = 40
 
+#: Safety limit when closing leftover screens.
+MAX_CLOSE_ROUNDS = 15
+
 
 def _digit_groups(text: str) -> list[str]:
     """The runs of digits in a string, e.g. '08 September 2026' -> ['08', '2026']."""
@@ -551,6 +554,9 @@ class WindowsBackend(AutomationBackend):
                     f"Could not select '{target.value or target.label()}': {exc}"
                 ) from exc
             return
+        if action == "invoke_until_gone":
+            self._invoke_until_gone(window, target)
+            return
         if action == "verify_text":
             actual = self._read_text(wrapper)
             if target.value.lower() not in actual.lower():
@@ -618,6 +624,34 @@ class WindowsBackend(AutomationBackend):
                 f"Could not type '{value}' into '{target.label()}': {exc}"
             ) from exc
         self._confirm_text(wrapper, target, value, before, "type_keys")
+
+    def _invoke_until_gone(self, window: WindowRef, target: UiTarget) -> None:
+        """Invoke every control matching the target, until none are left.
+
+        NS Retail opens a new report screen each time one is asked for and
+        never closes the old one, so several identical screens pile up. This
+        clears them; ambiguity is expected here rather than a problem.
+        """
+        for round_number in range(1, MAX_CLOSE_ROUNDS + 1):
+            matches = self._matching_wrappers(window, target)
+            if not matches:
+                if round_number > 1:
+                    logger.info("Closed %d leftover screen(s).", round_number - 1)
+                return
+            logger.info(
+                "Closing leftover screen %d (%d still open)", round_number, len(matches)
+            )
+            try:
+                self._invoke(matches[0], target)
+            except Exception as exc:  # noqa: BLE001 - report what is left
+                raise ControlNotFoundError(
+                    f"Could not close '{target.label()}': {exc}"
+                ) from exc
+            time.sleep(0.4)
+        raise ControlNotFoundError(
+            f"'{target.label()}' was still there after {MAX_CLOSE_ROUNDS} attempts.",
+            hint="Close the extra report screens in NS Retail by hand.",
+        )
 
     # -- grids -----------------------------------------------------------
     #: Cells report themselves like "Include row 3"; this pulls out the 3.

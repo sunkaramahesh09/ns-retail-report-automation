@@ -39,6 +39,7 @@ from .selectors import Selectors, Step, UiTarget
 logger = logging.getLogger(__name__)
 
 #: Steps the purchase-report workflow needs, in the order they are used.
+STEP_CLOSE_REPORT_SCREENS = "close_report_screens"
 STEP_OPEN_REPORTS = "open_reports"
 STEP_OPEN_STOCK_REPORTS = "open_stock_reports"
 STEP_SELECT_PURCHASE_REPORT = "select_purchase_report"
@@ -56,6 +57,7 @@ STEP_SAVE_CONFIRM = "save_confirm"
 STEP_LOGIN = "login"
 
 PURCHASE_REPORT_STEPS = (
+    STEP_CLOSE_REPORT_SCREENS,
     STEP_OPEN_REPORTS,
     STEP_OPEN_STOCK_REPORTS,
     STEP_SELECT_PURCHASE_REPORT,
@@ -78,6 +80,7 @@ PURCHASE_REPORT_STEPS = (
 #: be searched for directly.
 OPTIONAL_STEPS = frozenset(
     {
+        STEP_CLOSE_REPORT_SCREENS,
         STEP_OPEN_COLUMN_SETTINGS,
         STEP_INCLUDE_ALL_COLUMNS,
         STEP_APPLY_AND_SEARCH,
@@ -264,6 +267,19 @@ class NSRetailAutomation:
     # ------------------------------------------------------------------
     # Navigation
     # ------------------------------------------------------------------
+    def close_report_screens(self) -> None:
+        """Clear report screens left open by earlier runs.
+
+        Asking for a report opens another copy of its screen without closing
+        the previous one. Two copies make every control on it ambiguous - the
+        date fields, Search, Report - and the run stops. Starting from a clean
+        state keeps the hundredth run identical to the first.
+        """
+        if not self.selectors.has_step(STEP_CLOSE_REPORT_SCREENS):
+            return
+        logger.info("Closing any report screens left open")
+        self._run_step(STEP_CLOSE_REPORT_SCREENS)
+
     def open_reports(self) -> None:
         logger.info("Opening Reports")
         self._run_step(STEP_OPEN_REPORTS)

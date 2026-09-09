@@ -16,6 +16,7 @@ class PurchaseReportJob(ReportJob):
         Each call maps to one entry in ``config/selectors.json``, so a change in
         NS Retail's menus is a configuration fix, not a code change.
         """
+        automation.close_report_screens()
         automation.open_reports()
         automation.open_stock_reports()
         automation.select_purchase_report()

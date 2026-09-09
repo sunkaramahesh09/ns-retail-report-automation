@@ -27,6 +27,7 @@ VALID_ACTIONS = (
     "send_keys",      # send keystrokes to the control, e.g. "{TAB}" or "^a"
     "menu_select",    # walk a classic menu path, e.g. "Reports->Stock Reports"
     "check_all_rows", # tick every unticked row of a grid, scrolling through it
+    "invoke_until_gone",  # invoke it repeatedly until no control matches any more
     "verify_text",    # read the control and fail unless it contains "value"
     "wait",           # only wait for the control to exist (no interaction)
 )

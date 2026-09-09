@@ -32,6 +32,7 @@ class FakeAutomation:
     def preflight(self): self._record("preflight")
     def missing_steps(self): return []
     def missing_windows(self): return []
+    def close_report_screens(self): self._record("close_report_screens")
     def launch(self): self._record("launch")
     def connect(self): self._record("connect")
     def login(self): self._record("login")
@@ -82,19 +83,20 @@ class TestSuccessfulRun:
         automation = FakeAutomation()
         result = make_job(settings, automation).run(REPORT_DAY)
         assert result.success is True
-        assert automation.calls[:9] == [
+        assert automation.calls[:10] == [
             "preflight",
             "launch",
             "connect",
             "login",
+            "close_report_screens",
             "open_reports",
             "open_stock_reports",
             "select_purchase_report",
             "set_date:2026-09-08",
             "search",
         ]
-        assert automation.calls[9] == "generate_report"
-        assert automation.calls[10].startswith("export_csv:")
+        assert automation.calls[10] == "generate_report"
+        assert automation.calls[11].startswith("export_csv:")
 
     def test_the_file_lands_in_the_day_wise_folder(self, settings, tmp_path):
         result = make_job(settings, FakeAutomation()).run(REPORT_DAY)

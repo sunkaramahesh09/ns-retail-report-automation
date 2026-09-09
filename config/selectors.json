@@ -61,6 +61,19 @@
       "window": "login",
       "targets": []
     },
+    "close_report_screens": {
+      "window": "main",
+      "description": "CONFIRMED 2026-09-09 - each visit to Stock Reports opens ANOTHER copy of the Purchases screen without closing the previous one; three were found stacked up during testing. Two copies make every control on the screen ambiguous, so the run would stop. This closes them all first (btnClose on each screen) and is what keeps the hundredth run identical to the first.",
+      "targets": [
+        {
+          "action": "invoke_until_gone",
+          "description": "Close on any open report screen",
+          "auto_id": "btnClose",
+          "control_type": "Button",
+          "optional": true
+        }
+      ]
+    },
     "open_reports": {
       "window": "main",
       "description": "VERIFIED 2026-09-09 - the 'Reports' tab on the ribbon.",
@@ -93,8 +106,16 @@
     },
     "select_purchase_report": {
       "window": "main",
-      "description": "TODO - capture the screen after Stock Reports opens, where Purchases is chosen.",
-      "targets": []
+      "description": "CONFIRMED 2026-09-09 - there is no separate 'Purchases' chooser: the Stock Reports button opens the Purchases criteria screen directly. This step confirms that is the screen we landed on, by waiting for the Purchases panel (ucPurchases), so a different report can never be run by mistake.",
+      "targets": [
+        {
+          "action": "wait",
+          "description": "the Purchases criteria screen",
+          "auto_id": "ucPurchases",
+          "control_type": "Pane",
+          "timeout_seconds": 30
+        }
+      ]
     },
     "set_date": {
       "window": "main",
