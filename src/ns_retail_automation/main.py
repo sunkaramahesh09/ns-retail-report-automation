@@ -79,6 +79,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="run the read-only Windows control inspector (further options are passed to it)",
     )
     parser.add_argument(
+        "--send-keys",
+        metavar="KEYS",
+        help=(
+            "after --try-step, send these keystrokes to whatever has focus, "
+            "without touching focus itself. For trying out ways through a menu "
+            'that UI Automation cannot see, e.g. "{HOME}{DOWN 7}{ENTER}"'
+        ),
+    )
+    parser.add_argument(
+        "--key-pause",
+        type=float,
+        default=0.15,
+        help="seconds between key presses for --send-keys (default: 0.15)",
+    )
+    parser.add_argument(
         "--probe",
         metavar="TEXT",
         help=(
@@ -311,6 +326,17 @@ def _try_step(settings: Settings, args: argparse.Namespace) -> int:
         print(f"  step '{name}' finished without an error.")
 
     print(f"\n{len(names)} step(s) finished: {', '.join(names)}")
+
+    if args.send_keys:
+        from pywinauto.keyboard import send_keys  # noqa: PLC0415
+
+        print(
+            f"Sending keys {args.send_keys!r} to whatever has focus "
+            f"({args.key_pause:.2f}s between presses) ..."
+        )
+        send_keys(args.send_keys, with_spaces=True, pause=args.key_pause)
+        print("Sent. Check NS Retail on screen to see where it landed.")
+        return EXIT_OK
 
     if args.probe:
         # Whatever the step opened is still on screen and still has focus,

@@ -512,8 +512,12 @@ class WindowsBackend(AutomationBackend):
             # focus explicitly first.
             from pywinauto.keyboard import send_keys  # noqa: PLC0415
 
-            logger.debug("Sending keys '%s' to whatever has focus", target.value)
-            send_keys(target.value, with_spaces=True)
+            logger.debug(
+                "Sending keys '%s' to whatever has focus (pause %.2fs)",
+                target.value,
+                target.pause_seconds,
+            )
+            send_keys(target.value, with_spaces=True, pause=target.pause_seconds)
             return
 
         if action == "menu_select":

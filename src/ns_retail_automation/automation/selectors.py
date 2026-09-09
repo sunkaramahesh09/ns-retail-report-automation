@@ -75,6 +75,9 @@ class UiTarget:
     #: moment anything else takes focus, so keys meant for one must be sent
     #: without touching focus at all.
     focus: bool = True
+    #: Seconds between key presses. DevExpress menus miss keys sent at full
+    #: speed, so a repeat like {DOWN 8} can arrive as three.
+    pause_seconds: float = 0.05
     #: Optional container to search inside. Use it when the control itself has
     #: no stable identity - NS Retail's date fields hold an Edit whose
     #: automation id is a window handle and changes on every launch, but their
