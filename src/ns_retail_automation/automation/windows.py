@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import ctypes
 import logging
+import re
 import subprocess
 import time
 from ctypes import wintypes
@@ -35,6 +36,11 @@ from .selectors import UiTarget, WindowSpec
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONTROL_STATES = "exists visible enabled ready"
+
+
+def _digit_groups(text: str) -> list[str]:
+    """The runs of digits in a string, e.g. '08 September 2026' -> ['08', '2026']."""
+    return re.findall(r"\d+", text or "")
 
 
 def ensure_available() -> None:
@@ -516,22 +522,80 @@ class WindowsBackend(AutomationBackend):
 
     def _set_text(self, wrapper: Any, target: UiTarget) -> None:
         value = target.value
+        before = self._read_text(wrapper)
+
         for method in ("set_edit_text", "set_text"):
             setter = getattr(wrapper, method, None)
             if setter is None:
                 continue
             try:
                 setter(value)
-                return
             except Exception as exc:  # noqa: BLE001 - try the next technique
                 logger.debug("%s() failed for %s: %s", method, target.label(), exc)
-        try:  # last resort: type into the focused control
+                continue
+            if self._confirm_text(wrapper, target, value, before, method):
+                return
+
+        try:  # last resort: select everything and type over it
             wrapper.set_focus()
+            wrapper.type_keys("^a", set_foreground=True)
             wrapper.type_keys(value, with_spaces=True, set_foreground=True)
         except Exception as exc:  # noqa: BLE001
             raise ControlNotFoundError(
                 f"Could not type '{value}' into '{target.label()}': {exc}"
             ) from exc
+        self._confirm_text(wrapper, target, value, before, "type_keys")
+
+    def _read_text(self, wrapper: Any) -> str:
+        """Best effort read of what a control currently shows."""
+        for reader in ("window_text", "get_value"):
+            method = getattr(wrapper, reader, None)
+            if method is None:
+                continue
+            try:
+                text = method()
+            except Exception:  # noqa: BLE001 - not every control exposes text
+                continue
+            if text:
+                return str(text)
+        try:
+            return str(wrapper.legacy_properties().get("Value", "") or "")
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def _confirm_text(
+        self, wrapper: Any, target: UiTarget, value: str, before: str, method: str
+    ) -> bool:
+        """Read the control back, so a value that did not stick is not silent.
+
+        A date picker may reformat what it was given ("08 September 2026"
+        becoming "08-09-2026"), which is fine; what matters is that the value
+        changed and the digits survived.
+        """
+        after = self._read_text(wrapper)
+        logger.info(
+            "Set %s to '%s' via %s - the control now shows '%s' (was '%s')",
+            target.label(),
+            value,
+            method,
+            after,
+            before,
+        )
+        if not after:
+            return True  # nothing readable; assume the setter worked
+
+        digits_wanted = {part for part in _digit_groups(value)}
+        digits_shown = {part for part in _digit_groups(after)}
+        if digits_wanted and not digits_wanted & digits_shown:
+            logger.warning(
+                "%s still shows '%s' after being set to '%s' - the format may be "
+                "wrong for this field.",
+                target.label(),
+                after,
+                value,
+            )
+            return False
+        return True
 
     def _call_first(self, wrapper: Any, methods: tuple[str, ...], target: UiTarget) -> None:
         for method in methods:
