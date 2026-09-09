@@ -1,6 +1,6 @@
 @echo off
 REM ---------------------------------------------------------------
-REM  Fixes / diagnoses: DLL load failed while importing win32ui
+REM  Diagnoses and fixes: DLL load failed while importing win32ui
 REM ---------------------------------------------------------------
 setlocal
 cd /d "%~dp0.."
@@ -13,16 +13,16 @@ if not exist "%PY%" (
 )
 
 echo.
-echo === Python version ===============================================
-"%PY%" -c "import sys; print(sys.version)"
+echo === Python =======================================================
+"%PY%" -c "import sys; print(sys.version); print(sys.prefix)"
 
 echo.
 echo === Registering pywin32's DLLs ===================================
 "%PY%" .venv\Scripts\pywin32_postinstall.py -install -silent
 
 echo.
-echo === Looking for the MFC runtime that win32ui needs ===============
-"%PY%" -c "import os,sys;d=os.path.join(sys.prefix,'Lib','site-packages','pythonwin');print('folder:',d);print('exists:',os.path.isdir(d));print('files :',sorted(f for f in os.listdir(d) if f.lower().endswith(('.dll','.pyd')))[:20] if os.path.isdir(d) else [])"
+echo === Which DLL is actually missing? ===============================
+"%PY%" -m ns_retail_automation.diagnose_win32
 
 echo.
 echo === Checking that the packages load ==============================
@@ -30,17 +30,14 @@ echo === Checking that the packages load ==============================
 if errorlevel 1 (
     echo.
     echo ==================================================================
-    echo  win32ui still will not load.
+    echo  win32ui still will not load. Read the "missing" lines above.
     echo.
-    echo  This is almost always because the Python version is too new for
-    echo  pywin32. The cure:
+    echo  If mfc140u.dll is missing, install the Microsoft Visual C++
+    echo  Redistributable (a 25 MB Microsoft download):
     echo.
-    echo    1. Install Python 3.12:
-    echo       https://www.python.org/downloads/release/python-3129/
-    echo       Tick "Add python.exe to PATH" on the first screen.
-    echo    2. Close this window, open a new Command Prompt here, and run:
-    echo       scripts\setup_windows.bat fresh
+    echo      https://aka.ms/vs/17/release/vc_redist.x64.exe
     echo.
+    echo  Run it, restart this Command Prompt, and run this script again.
     echo  Send the output above back if it still fails.
     echo ==================================================================
     pause
