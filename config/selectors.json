@@ -33,8 +33,10 @@
       "timeout_seconds": 300
     },
     "save_dialog": {
-      "_status": "TODO - the Windows 'Save As' dialog; expected to be top-level with class #32770.",
-      "title_re": "Save As",
+      "_status": "CONFIRMED 2026-09-09 - the Windows 'Save As' dialog appears inside the Preview window's tree, not as a top-level window.",
+      "inside": "report_viewer",
+      "title": "Save As",
+      "control_type": "Window",
       "timeout_seconds": 60
     },
     "column_settings": {
@@ -45,7 +47,7 @@
       "timeout_seconds": 30
     },
     "csv_options": {
-      "_status": "CONFIRMED 2026-09-09 - the 'CSV Export Options' dialog is a child window called LinesForm inside the Preview window, not a top-level dialog. Its OK button still needs a capture.",
+      "_status": "CONFIRMED 2026-09-09 - child window 'LinesForm' inside the Preview; holds Encoding, Text export mode, separator, OK and Cancel.",
       "inside": "report_viewer",
       "auto_id": "LinesForm",
       "control_type": "Window",
@@ -205,18 +207,37 @@
     },
     "choose_csv_format": {
       "window": "report_viewer",
+      "description": "TODO - the 'CSV File' entry in the Export To menu. The menu closes when focus moves, so capture it with scripts\\capture_popup.bat.",
       "targets": []
     },
     "confirm_export": {
-      "window": "report_viewer",
-      "targets": []
+      "window": "csv_options",
+      "description": "CONFIRMED 2026-09-09 - OK (auto_id btnOK) in the CSV Export Options dialog. The encoding and separator are left exactly as the operator has them.",
+      "targets": [
+        {
+          "action": "invoke",
+          "description": "OK",
+          "auto_id": "btnOK",
+          "control_type": "Button"
+        }
+      ]
     },
     "save_set_path": {
       "window": "save_dialog",
-      "targets": []
+      "description": "CONFIRMED 2026-09-09 - the File name box is Edit auto_id 1001. A Windows save dialog accepts a full path there, so the whole destination is typed in one go and no folder navigation is needed. The folder is created beforehand by the automation.",
+      "targets": [
+        {
+          "action": "set_text",
+          "description": "File name",
+          "auto_id": "1001",
+          "control_type": "Edit",
+          "value": "{destination_path}"
+        }
+      ]
     },
     "save_confirm": {
       "window": "save_dialog",
+      "description": "TODO - the Save button in the Save As dialog.",
       "targets": []
     }
   }
