@@ -33,7 +33,7 @@ if errorlevel 1 (
     echo  win32ui still will not load. Read the "missing" lines above.
     echo.
     echo  If mfc140u.dll is missing, install the Microsoft Visual C++
-    echo  Redistributable (a 25 MB Microsoft download):
+    echo  Redistributable ^(a 25 MB Microsoft download^):
     echo.
     echo      https://aka.ms/vs/17/release/vc_redist.x64.exe
     echo.
