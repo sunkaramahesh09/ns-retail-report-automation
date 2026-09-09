@@ -63,13 +63,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--list-steps", action="store_true", help="list the workflow steps and whether each is mapped")
     parser.add_argument(
         "--try-step",
-        metavar="STEP[,STEP...]",
+        metavar="STEP[+STEP...]",
         help=(
             "run one or more steps against the running NS Retail, for testing "
             "newly mapped selectors (this does click in the application). "
-            "Several comma-separated steps run back to back without returning "
-            "to the console, which is the only way to test a popup menu: "
-            "clicking back to this window closes it"
+            "Steps joined with + (or ,) run back to back without returning to "
+            "the console, which is the only way to test a popup menu: clicking "
+            "back to this window closes it"
         ),
     )
     parser.add_argument("--list-reports", action="store_true", help="list the configured reports and exit")
@@ -277,7 +277,13 @@ def _list_steps(settings: Settings, args: argparse.Namespace) -> int:
 def _try_step(settings: Settings, args: argparse.Namespace) -> int:
     """Run a single step, so a new selector can be verified on its own."""
     automation = _build_automation(settings, args)
-    names = [name.strip() for name in args.try_step.split(",") if name.strip()]
+    # "+" as well as "," because cmd.exe splits arguments on commas, so a
+    # comma-separated list arrives as several arguments instead of one.
+    names = [
+        name.strip()
+        for name in args.try_step.replace(",", "+").split("+")
+        if name.strip()
+    ]
     if not names:
         raise ConfigError("No step name was given to --try-step.")
 

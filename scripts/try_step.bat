@@ -8,9 +8,10 @@ REM    scripts\try_step.bat set_date 08-09-2026
 REM    scripts\try_step.bat                     ^(lists the steps^)
 REM
 REM  Several steps at once, back to back - needed for the export menu,
-REM  which closes as soon as you click back to this window:
+REM  which closes as soon as you click back to this window. Join them
+REM  with + : cmd.exe splits arguments on commas.
 REM
-REM    scripts\try_step.bat export_to,choose_csv_format,confirm_export
+REM    scripts\try_step.bat export_to+choose_csv_format+confirm_export
 REM ---------------------------------------------------------------
 setlocal
 cd /d "%~dp0.."
@@ -27,6 +28,18 @@ if "%~1"=="" (
     echo.
     pause
     exit /b 0
+)
+
+REM Guard against the comma trap: cmd splits "a,b,c" into three arguments,
+REM so the second one would otherwise be read as a date.
+echo %~1| findstr /c:"," >nul
+if not errorlevel 1 (
+    if not "%~2"=="" (
+        echo [ERROR] Join steps with + instead of a comma - cmd.exe splits on commas.
+        echo         Example: scripts\try_step.bat export_to+choose_csv_format
+        pause
+        exit /b 1
+    )
 )
 
 if "%~2"=="" (
