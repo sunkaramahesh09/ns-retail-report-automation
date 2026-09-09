@@ -16,7 +16,7 @@ set "USERCFG=%USERCFGDIR%\config.json"
 
 echo.
 echo === 0/6  Which copy of the project is this? =======================
-for /f "usebackq tokens=*" %%v in (`findstr /c:"__version__" src\ns_retail_automation\__init__.py`) do echo Project source: %%v
+for /f "usebackq tokens=*" %%v in (`findstr /c:"__version__ = " src\ns_retail_automation\__init__.py`) do echo Project source: %%v
 echo Folder        : %CD%
 echo (If the version is not what you were told to download, extract the new
 echo  ZIP over this folder and choose "Replace the files in the destination".)
@@ -55,12 +55,26 @@ if errorlevel 1 (
 
 echo.
 echo === 2/6  Virtual environment =====================================
-if /i "%~1"=="fresh" (
-    if exist .venv (
-        echo Deleting the old .venv ...
-        rmdir /s /q .venv
-    )
-)
+REM Is the chosen Python one that pywin32 works on?
+set "PYOK=0"
+%PYCMD% -c "import sys; sys.exit(0 if sys.version_info < (3, 13) else 1)" >nul 2>&1
+if not errorlevel 1 set "PYOK=1"
+
+REM Is the existing .venv on such a Python?
+set "VENVOK=0"
+.venv\Scripts\python.exe -c "import sys; sys.exit(0 if sys.version_info < (3, 13) else 1)" >nul 2>&1
+if not errorlevel 1 set "VENVOK=1"
+if not exist .venv set "VENVOK=0"
+
+if /i "%~1"=="fresh" if exist .venv echo Deleting the old .venv (you asked for a fresh one) ...
+if /i "%~1"=="fresh" if exist .venv rmdir /s /q .venv
+
+REM A .venv built on a too-new Python can never work, so replace it rather
+REM than reusing it and failing later with "DLL load failed".
+if exist .venv if "%VENVOK%"=="0" if "%PYOK%"=="1" echo The existing .venv runs a Python that pywin32 cannot work on.
+if exist .venv if "%VENVOK%"=="0" if "%PYOK%"=="1" echo Rebuilding it with !PYCMD! ...
+if exist .venv if "%VENVOK%"=="0" if "%PYOK%"=="1" rmdir /s /q .venv
+
 if not exist .venv (
     echo Creating .venv ...
     !PYCMD! -m venv .venv
@@ -76,13 +90,13 @@ if not exist .venv (
 .venv\Scripts\python.exe -c "import sys; print('Virtual environment runs Python', sys.version.split()[0]); sys.exit(1 if sys.version_info >= (3, 13) else 0)"
 if errorlevel 1 (
     echo.
-    echo [WARNING] This is a very new Python. pywin32 - which the automation
-    echo           depends on - is often broken on it, and "import win32ui"
-    echo           fails with "DLL load failed".
+    echo [WARNING] This Python is too new for pywin32, and "import win32ui"
+    echo           will fail with "DLL load failed".
     echo.
-    echo           If setup fails below, install Python 3.12 from
+    echo           Install Python 3.12 from
     echo           https://www.python.org/downloads/release/python-3129/
-    echo           and then run:   scripts\setup_windows.bat fresh
+    echo           or run:  py install 3.12
+    echo           then run this script again - it will rebuild automatically.
     echo.
 )
 
