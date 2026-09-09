@@ -106,8 +106,17 @@
     },
     "select_purchase_report": {
       "window": "main",
-      "description": "CONFIRMED 2026-09-09 - there is no separate 'Purchases' chooser: the Stock Reports button opens the Purchases criteria screen directly. This step confirms that is the screen we landed on, by waiting for the Purchases panel (ucPurchases), so a different report can never be run by mistake.",
+      "description": "VERIFIED 2026-09-09 live - the earlier assumption (Stock Reports opens Purchases directly) was wrong: it opens a report catalog tree (auto_id tlReport, inside dpLeft) listing 19 report types. 'Purchases' is the DataItem with value 'Purchases' inside TreeItem 'Node8' (index-based, since the row has no auto_id or stable text - its UIA Name is 'Report row 8', the visible text 'Purchases' is only in its Value property). Clicking that TreeItem loads the Purchases criteria screen. The wait below is the real safety net: if the catalog's row order ever changes, this stops loudly here instead of silently searching the wrong report.",
       "targets": [
+        {
+          "action": "click",
+          "description": "'Purchases' row in the Stock Reports catalog tree (Node8)",
+          "title": "Node8",
+          "control_type": "TreeItem",
+          "parent": {
+            "auto_id": "tlReport"
+          }
+        },
         {
           "action": "wait",
           "description": "the Purchases criteria screen",
