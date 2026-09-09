@@ -15,6 +15,13 @@ set "USERCFGDIR=%USERPROFILE%\.ns_retail_automation"
 set "USERCFG=%USERCFGDIR%\config.json"
 
 echo.
+echo === 0/6  Which copy of the project is this? =======================
+for /f "usebackq tokens=*" %%v in (`findstr /c:"__version__" src\ns_retail_automation\__init__.py`) do echo Project source: %%v
+echo Folder        : %CD%
+echo (If the version is not what you were told to download, extract the new
+echo  ZIP over this folder and choose "Replace the files in the destination".)
+
+echo.
 echo === 1/6  Choosing a Python version ================================
 REM pywinauto needs pywin32, whose newest-Python builds are often broken.
 REM Python 3.12 is the version it is actually tested against, so prefer it.

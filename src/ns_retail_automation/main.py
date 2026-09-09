@@ -194,6 +194,7 @@ def _check(settings: Settings, args: argparse.Namespace) -> int:
     environment = describe_environment()
     print("Environment")
     print("-----------")
+    print(f"Project version : {__version__}")
     for line in environment.summary_lines():
         print(line)
 
