@@ -802,7 +802,21 @@ class WindowsBackend(AutomationBackend):
             )
 
     def _read_text(self, wrapper: Any) -> str:
-        """Best effort read of what a control currently shows."""
+        """Best effort read of what a control currently shows.
+
+        The legacy MSAA 'Value' is checked first: for some controls - the
+        Windows Save As dialog's "Save as type" combo box, confirmed live -
+        UIA's Name/window_text() returns the static label ('Save as type:')
+        rather than the selected item, while the legacy Value correctly
+        holds it ('CSV Document (*.csv)'). window_text()/get_value() are
+        the fallback for controls that expose no legacy Value at all.
+        """
+        try:
+            legacy_value = str(wrapper.legacy_properties().get("Value", "") or "")
+        except Exception:  # noqa: BLE001 - not every control exposes this
+            legacy_value = ""
+        if legacy_value:
+            return legacy_value
         for reader in ("window_text", "get_value"):
             method = getattr(wrapper, reader, None)
             if method is None:
@@ -813,10 +827,7 @@ class WindowsBackend(AutomationBackend):
                 continue
             if text:
                 return str(text)
-        try:
-            return str(wrapper.legacy_properties().get("Value", "") or "")
-        except Exception:  # noqa: BLE001
-            return ""
+        return ""
 
     def _confirm_text(
         self, wrapper: Any, target: UiTarget, value: str, before: str, method: str

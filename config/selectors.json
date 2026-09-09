@@ -226,33 +226,30 @@
     },
     "export_to": {
       "window": "report_viewer",
-      "description": "CONFIRMED 2026-09-09 - clicking the face of the 'Export To' split button exports in the format used last, which at this site is always CSV. That is an assumption about the application's state, so it is checked immediately afterwards rather than trusted: choose_csv_format verifies the options dialog really is the CSV one, and save_set_path verifies the save dialog's file type before anything is written.",
+      "description": "VERIFIED 2026-09-09 live - the earlier assumption (clicking the split button's face repeats CSV because that is always the last-used format at this site) was wrong: this run's first attempt exported a PDF, because someone had exported a PDF from this preview since the mapping session. The dropdown arrow is used instead, so the format is chosen explicitly every run rather than trusted. Its entries are invisible to UI Automation (0 descendants under the popup's MenuBar, confirmed live), so the route through it is by keyboard: Home selects the first entry regardless of which one was last used, then one Down reaches CSV - measured by opening the menu and enumerating it entry by entry (Home+Enter = 'XLSX Export Options', Home+Down 1+Enter = 'CSV Export Options'). choose_csv_format still verifies the resulting dialog, and save_set_path still verifies the save dialog's file type, in case the entry order ever changes.",
       "targets": [
         {
           "action": "invoke",
-          "description": "Export To",
-          "title": "Export To",
-          "control_type": "SplitButton"
+          "description": "Export To dropdown arrow",
+          "title": "Open",
+          "control_type": "Button",
+          "parent": {
+            "title": "Export To",
+            "control_type": "SplitButton"
+          }
+        },
+        {
+          "action": "send_keys",
+          "description": "Home to the top of the format list, down once to CSV, Enter to pick it",
+          "value": "{HOME}{DOWN 1}{ENTER}",
+          "focus": false,
+          "pause_seconds": 0.4
         }
       ]
     },
     "choose_csv_format": {
       "window": "report_viewer",
-      "description": "CONFIRMED 2026-09-09 - no clicking needed: the export above opens the options dialog for the last-used format directly. This step checks that dialog is 'CSV Export Options'. If someone exports a different format from this preview, the next run stops here with a clear message instead of writing e.g. an MHT file into a .csv name; export once to CSV by hand to put it back.",
-      "_alternative_if_the_default_ever_changes": [
-        "The format list can be opened from the split button's dropdown arrow",
-        "(parent: title 'Export To', control_type SplitButton; target: title",
-        "'Open', control_type Button), but its entries are invisible to UI",
-        "Automation, so the only route through it is by keyboard, slowly:",
-        {
-          "action": "send_keys",
-          "value": "{UP 12}{DOWN 7}{ENTER}",
-          "focus": false,
-          "pause_seconds": 0.4
-        },
-        "Measured 2026-09-09: at full speed DevExpress drops key presses, and",
-        "the menu opens on the last-used entry rather than at the top."
-      ],
+      "description": "CONFIRMED 2026-09-09 - checks the options dialog that export_to's menu selection opened really is 'CSV Export Options'. If the format list's entry order ever changes, the next run stops here with a clear message instead of writing e.g. an XLSX file into a .csv name.",
       "targets": [
         {
           "action": "verify_text",
