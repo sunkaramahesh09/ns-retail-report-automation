@@ -31,6 +31,12 @@ class PackageStatus:
     installed: bool
     version: str = ""
     required: bool = True
+    #: Why the package is unusable, when it is present but will not import.
+    error: str = ""
+
+    @property
+    def usable(self) -> bool:
+        return self.installed and not self.error
 
 
 def _package_status(name: str, *, required: bool) -> PackageStatus:
@@ -40,6 +46,7 @@ def _package_status(name: str, *, required: bool) -> PackageStatus:
         spec = None
     if spec is None:
         return PackageStatus(name=name, installed=False, required=required)
+
     version = ""
     try:  # best effort - win32api has no dist name of its own
         from importlib.metadata import version as dist_version
@@ -48,7 +55,20 @@ def _package_status(name: str, *, required: bool) -> PackageStatus:
         version = dist_version(dist)
     except Exception:  # noqa: BLE001 - version is cosmetic
         version = ""
-    return PackageStatus(name=name, installed=True, version=version, required=required)
+
+    # Being installed is not the same as being usable: pywin32 ships DLLs that
+    # a plain "pip install" does not put where Windows can find them, so the
+    # import fails at run time. Only a real import proves the package works.
+    error = ""
+    if required and is_windows():
+        try:
+            importlib.import_module(name)
+        except Exception as exc:  # noqa: BLE001 - any import failure disqualifies it
+            error = f"{type(exc).__name__}: {exc}"
+
+    return PackageStatus(
+        name=name, installed=True, version=version, required=required, error=error
+    )
 
 
 def check_packages() -> list[PackageStatus]:
@@ -59,7 +79,13 @@ def check_packages() -> list[PackageStatus]:
 
 
 def missing_required_packages() -> list[str]:
-    return [s.name for s in check_packages() if s.required and not s.installed]
+    """Required packages that are absent, or present but not importable."""
+    return [s.name for s in check_packages() if s.required and not s.usable]
+
+
+def package_problems() -> list[PackageStatus]:
+    """Required packages that are installed but broken."""
+    return [s for s in check_packages() if s.required and s.installed and s.error]
 
 
 @dataclass(frozen=True)
@@ -72,7 +98,7 @@ class Environment:
     @property
     def can_automate(self) -> bool:
         return self.is_windows and not [
-            p for p in self.packages if p.required and not p.installed
+            p for p in self.packages if p.required and not p.usable
         ]
 
     def summary_lines(self) -> list[str]:
@@ -83,10 +109,20 @@ class Environment:
             "Packages:",
         ]
         for pkg in self.packages:
-            mark = "ok     " if pkg.installed else ("MISSING" if pkg.required else "absent ")
+            if pkg.usable:
+                mark = "ok     "
+            elif pkg.error:
+                mark = "BROKEN "
+            elif pkg.required:
+                mark = "MISSING"
+            else:
+                mark = "absent "
             tag = "required" if pkg.required else "optional"
             version = f" {pkg.version}" if pkg.version else ""
             lines.append(f"  [{mark}] {pkg.name}{version} ({tag})")
+            if pkg.error:
+                lines.append(f"           {pkg.error}")
+
         if self.can_automate:
             lines.append("NS Retail automation : available")
         elif not self.is_windows:
@@ -95,11 +131,24 @@ class Environment:
                 "(non-Windows). Date, folder and configuration logic still work."
             )
         else:
-            missing = ", ".join(p.name for p in self.packages if p.required and not p.installed)
-            lines.append(
-                f"NS Retail automation : NOT available - missing package(s): {missing}. "
-                "Run: pip install -r requirements.txt"
-            )
+            broken = [p for p in self.packages if p.required and p.installed and p.error]
+            absent = [p for p in self.packages if p.required and not p.installed]
+            if absent:
+                lines.append(
+                    "NS Retail automation : NOT available - missing package(s): "
+                    + ", ".join(p.name for p in absent)
+                    + ". Run: scripts\\setup_windows.bat"
+                )
+            if broken:
+                lines.append(
+                    "NS Retail automation : NOT available - installed but not "
+                    "loadable: " + ", ".join(p.name for p in broken)
+                )
+                if any(p.name in ("win32api", "pywinauto") for p in broken):
+                    lines.append(
+                        "           pywin32's DLLs are not registered. Fix it with: "
+                        "scripts\\fix_pywin32.bat"
+                    )
         return lines
 
 

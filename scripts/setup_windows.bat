@@ -43,6 +43,12 @@ if errorlevel 1 (
     exit /b 1
 )
 .venv\Scripts\python.exe -m pip install -e . --quiet
+
+REM pip does not register pywin32's DLLs, which makes "import win32ui" fail
+REM later with "DLL load failed". Running the post-install script fixes that.
+if exist .venv\Scripts\pywin32_postinstall.py (
+    .venv\Scripts\python.exe .venv\Scripts\pywin32_postinstall.py -install -silent >nul 2>&1
+)
 echo Packages installed.
 
 echo.

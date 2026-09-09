@@ -153,3 +153,84 @@ class TestReportLookup:
         )
         with pytest.raises(ConfigError, match="Unknown storage override"):
             settings.storage_for(settings.report("purchases"))
+
+
+class TestWindowsPathTolerance:
+    """A Windows path typed by hand breaks JSON; the loader repairs it."""
+
+    def test_single_backslash_path_is_repaired(self, tmp_path, caplog):
+        path = tmp_path / "config.json"
+        path.write_text(
+            '{"storage": {"base_path": "D:\\2026-27 DAY WISE REPORTS"}}', encoding="utf-8"
+        )
+        settings = load_config(path)
+        assert settings.storage.base_path == "D:\\2026-27 DAY WISE REPORTS"
+
+    def test_correctly_escaped_file_is_untouched(self, tmp_path):
+        path = tmp_path / "config.json"
+        path.write_text(
+            '{"storage": {"base_path": "D:\\\\REPORTS", "filename_template": "a\\nb.csv"}}',
+            encoding="utf-8",
+        )
+        settings = load_config(path)
+        assert settings.storage.base_path == "D:\\REPORTS"
+        assert settings.storage.filename_template == "a\nb.csv"
+
+    def test_a_genuine_syntax_error_is_still_an_error(self, tmp_path):
+        path = tmp_path / "config.json"
+        path.write_text('{"storage": {"base_path": "D:\\R",}}', encoding="utf-8")
+        with pytest.raises(ConfigError, match="not valid JSON"):
+            load_config(path)
+
+    def test_escaping_helper(self):
+        from ns_retail_automation.config.settings import escape_lone_backslashes
+
+        assert escape_lone_backslashes(r'"D:\2026"') == r'"D:\\2026"'
+        assert escape_lone_backslashes(r'"D:\\ok"') == r'"D:\\ok"'
+        assert escape_lone_backslashes('"a\\nb"') == '"a\\nb"'
+
+
+class TestConfigureTool:
+    def test_setting_a_windows_path_writes_valid_json(self, tmp_path):
+        from ns_retail_automation.configure import main as configure_main
+
+        path = tmp_path / "config.json"
+        code = configure_main(
+            ["--config", str(path), "--base-path", "D:\\2026-27 DAY WISE REPORTS"]
+        )
+        assert code == 0
+        # The file must now be loadable without any repair.
+        assert json.loads(path.read_text())["storage"]["base_path"] == (
+            "D:\\2026-27 DAY WISE REPORTS"
+        )
+        assert load_config(path).storage.base_path == "D:\\2026-27 DAY WISE REPORTS"
+
+    def test_exe_also_sets_the_process_name(self, tmp_path):
+        from ns_retail_automation.configure import main as configure_main
+
+        path = tmp_path / "config.json"
+        configure_main(["--config", str(path), "--exe", "C:\\NS Retail\\NSRetail.exe"])
+        settings = load_config(path)
+        assert settings.application.executable_path == "C:\\NS Retail\\NSRetail.exe"
+        assert settings.application.process_name == "NSRetail.exe"
+
+    def test_fix_rewrites_a_hand_edited_file(self, tmp_path):
+        from ns_retail_automation.configure import main as configure_main
+
+        path = tmp_path / "config.json"
+        path.write_text('{"storage": {"base_path": "D:\\REPORTS"}}', encoding="utf-8")
+        assert configure_main(["--config", str(path), "--fix"]) == 0
+        # Now valid JSON on disk, and the backup keeps the original.
+        assert json.loads(path.read_text())["storage"]["base_path"] == "D:\\REPORTS"
+        assert (tmp_path / "config.json.bak").exists()
+
+    def test_invalid_value_is_refused_before_writing(self, tmp_path, capsys):
+        from ns_retail_automation.configure import main as configure_main
+
+        path = tmp_path / "config.json"
+        code = configure_main(["--config", str(path), "--default-date", "yesterday"])
+        assert code == 0
+        before = path.read_text()
+        code = configure_main(["--config", str(path), "--on-existing", "skip"])
+        assert code == 0
+        assert path.is_file() and before  # unchanged file is still valid JSON

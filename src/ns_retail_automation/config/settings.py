@@ -308,19 +308,83 @@ def load_config(
         return build_settings(DEFAULTS, source_path=None)
 
     try:
-        raw = json.loads(config_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise ConfigError(
-            f"'{config_path}' is not valid JSON (line {exc.lineno}, column {exc.colno}: {exc.msg}).",
-            hint="A missing comma or a stray trailing comma is the usual cause.",
-        ) from exc
+        text = config_path.read_text(encoding="utf-8")
     except OSError as exc:
         raise ConfigError(f"Could not read '{config_path}': {exc}") from exc
 
-    if not isinstance(raw, dict):
-        raise ConfigError(f"'{config_path}' must contain a JSON object.")
+    raw = parse_config_text(text, config_path)
 
     return build_settings(raw, source_path=config_path)
+
+
+VALID_JSON_ESCAPES = '"\\/bfnrtu'
+
+
+def escape_lone_backslashes(text: str) -> str:
+    """Double any backslash that JSON would reject.
+
+    Windows paths are typed as ``D:\\2026-27 REPORTS`` in a text editor, but JSON
+    reads ``\\2`` as an escape sequence and refuses the file. Rather than making
+    the user learn JSON escaping, a file that fails only for this reason is
+    repaired in memory (and can be repaired on disk with ``--fix-config``).
+    """
+    out: list[str] = []
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char == "\\" and index + 1 < len(text):
+            following = text[index + 1]
+            if following in VALID_JSON_ESCAPES:
+                out.append(char)
+                out.append(following)
+                index += 2
+                continue
+            out.append("\\\\")
+            index += 1
+            continue
+        out.append(char)
+        index += 1
+    return "".join(out)
+
+
+def parse_config_text(text: str, config_path: Path) -> dict[str, Any]:
+    """Parse configuration JSON, repairing un-escaped Windows paths."""
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError as exc:
+        repaired_error: json.JSONDecodeError | None = None
+        if "escape" in exc.msg.lower():
+            try:
+                raw = json.loads(escape_lone_backslashes(text))
+            except json.JSONDecodeError as second:
+                repaired_error = second
+            else:
+                logger.warning(
+                    "'%s' contains Windows paths written with single backslashes "
+                    "(line %d). It was read anyway. Repair the file for good with: "
+                    "python -m ns_retail_automation.configure --fix",
+                    config_path,
+                    exc.lineno,
+                )
+                return _as_object(raw, config_path)
+        problem = repaired_error or exc
+        raise ConfigError(
+            f"'{config_path}' is not valid JSON (line {problem.lineno}, column "
+            f"{problem.colno}: {problem.msg}).",
+            hint=(
+                "A missing comma, a stray trailing comma, or a Windows path "
+                "written with single backslashes is the usual cause. Set paths "
+                "with: python -m ns_retail_automation.configure --base-path "
+                '"D:\\REPORTS"'
+            ),
+        ) from problem
+    return _as_object(raw, config_path)
+
+
+def _as_object(raw: Any, config_path: Path) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        raise ConfigError(f"'{config_path}' must contain a JSON object.")
+    return raw
 
 
 def build_settings(data: dict[str, Any], *, source_path: Path | None = None) -> Settings:
