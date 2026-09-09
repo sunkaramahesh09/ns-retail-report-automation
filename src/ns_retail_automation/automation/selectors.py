@@ -30,6 +30,8 @@ VALID_ACTIONS = (
     "invoke_until_gone",  # invoke it repeatedly until no control matches any more
     "verify_text",    # read the control and fail unless it contains "value"
     "wait",           # only wait for the control to exist (no interaction)
+    "select_export_format",  # try each entry of an owner-drawn popup menu in
+                              # turn until the dialog it opens matches "value"
 )
 
 #: How to choose when several controls match the same description.
@@ -84,6 +86,12 @@ class UiTarget:
     #: automation id is a window handle and changes on every launch, but their
     #: parent ComboBox is reliably "dtpFromDate" / "dtpToDate".
     parent: dict[str, Any] = field(default_factory=dict)
+    #: select_export_format only: identity of the dialog each menu entry
+    #: opens, so its title can be checked against "value".
+    result_auto_id: str = ""
+    result_control_type: str = ""
+    #: select_export_format only: how many entries to try before giving up.
+    max_tries: int = 20
 
     def parent_criteria(self) -> dict[str, Any]:
         return {k: v for k, v in self.parent.items() if k in PARENT_CRITERIA_FIELDS and v != ""}
@@ -143,6 +151,11 @@ class UiTarget:
             raise ConfigError(
                 f"{where}: action '{self.action}' needs a 'value'."
             )
+        if self.action == "select_export_format":
+            if not self.value:
+                raise ConfigError(f"{where}: 'select_export_format' needs a 'value'.")
+            if not self.result_auto_id:
+                raise ConfigError(f"{where}: 'select_export_format' needs 'result_auto_id'.")
         if self.pick and self.pick not in VALID_PICKS:
             raise ConfigError(
                 f"{where}: pick '{self.pick}' is not supported.",

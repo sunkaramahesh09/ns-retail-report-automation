@@ -226,23 +226,21 @@
     },
     "export_to": {
       "window": "report_viewer",
-      "description": "VERIFIED 2026-09-09 live - the earlier assumption (clicking the split button's face repeats CSV because that is always the last-used format at this site) was wrong: this run's first attempt exported a PDF, because someone had exported a PDF from this preview since the mapping session. The dropdown arrow is used instead, so the format is chosen explicitly every run rather than trusted. Its entries are invisible to UI Automation (0 descendants under the popup's MenuBar, confirmed live), so the route through it is by keyboard: Home selects the first entry regardless of which one was last used, then one Down reaches CSV - measured by opening the menu and enumerating it entry by entry (Home+Enter = 'XLSX Export Options', Home+Down 1+Enter = 'CSV Export Options'). choose_csv_format still verifies the resulting dialog, and save_set_path still verifies the save dialog's file type, in case the entry order ever changes.",
+      "description": "VERIFIED 2026-09-09 live, twice - the earlier assumption (clicking the split button's face repeats CSV because that is always the last-used format at this site) was wrong: the first end-to-end attempt exported a PDF. A fixed keyboard position was tried next (Home, then one Down, then Enter) and worked once ('CSV Export Options'), but failed the very next run, landing on 'HTML Export Options' instead - re-enumerating the menu from Home showed a DIFFERENT format at every position than the first enumeration had found there, which looks like a most-recently-used ordering rather than a fixed list. Its entries are invisible to UI Automation either way (0 descendants under the popup's MenuBar, confirmed live), so there is no way to read the order back and pick the right position directly. Instead this opens the dropdown, tries Home+Enter, Home+Down 1+Enter, Home+Down 2+Enter, ... reading the title of whichever Options dialog each one opens, cancelling and trying the next position until one says 'CSV'. See action 'select_export_format' in windows.py.",
       "targets": [
         {
-          "action": "invoke",
-          "description": "Export To dropdown arrow",
+          "action": "select_export_format",
+          "description": "Export To dropdown - try each entry until its Options dialog says CSV",
           "title": "Open",
           "control_type": "Button",
           "parent": {
             "title": "Export To",
             "control_type": "SplitButton"
-          }
-        },
-        {
-          "action": "send_keys",
-          "description": "Home to the top of the format list, down once to CSV, Enter to pick it",
-          "value": "{HOME}{DOWN 1}{ENTER}",
-          "focus": false,
+          },
+          "value": "CSV",
+          "result_auto_id": "LinesForm",
+          "result_control_type": "Window",
+          "max_tries": 20,
           "pause_seconds": 0.4
         }
       ]

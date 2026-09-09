@@ -542,6 +542,9 @@ class WindowsBackend(AutomationBackend):
         if action == "wait":
             self._wait_for_any(window, target, effective_timeout)
             return
+        if action == "select_export_format":
+            self._select_export_format(window, target, effective_timeout)
+            return
 
         wrapper = self._control(window, target, effective_timeout)
 
@@ -669,6 +672,80 @@ class WindowsBackend(AutomationBackend):
         raise ControlNotFoundError(
             f"'{target.label()}' was still there after {MAX_CLOSE_ROUNDS} attempts.",
             hint="Close the extra report screens in NS Retail by hand.",
+        )
+
+    def _select_export_format(self, window: WindowRef, target: UiTarget, timeout: float) -> None:
+        """Pick an export format from an owner-drawn popup menu by trial.
+
+        The menu's entries are invisible to UI Automation - confirmed live,
+        0 descendants under its MenuBar - and their order is not fixed
+        between sessions either: the same {HOME}{DOWN n}{ENTER} sequence
+        opened a different format's Options dialog on two separate runs, in
+        what looks like a most-recently-used ordering. So rather than a
+        fixed position, this opens the dropdown, presses Home plus an
+        increasing number of Downs plus Enter, and reads the title of
+        whichever Options dialog that opens. If it doesn't match "value",
+        that dialog is cancelled and the next position is tried.
+        """
+        from pywinauto.keyboard import send_keys  # noqa: PLC0415
+
+        opener = self._control(window, target, timeout)
+        result_criteria: dict[str, Any] = {"auto_id": target.result_auto_id}
+        if target.result_control_type:
+            result_criteria["control_type"] = target.result_control_type
+        pause = target.pause_seconds or 0.4
+
+        for position in range(target.max_tries):
+            self._invoke(opener, target)
+            time.sleep(0.5)
+            keys = "{HOME}" if position == 0 else f"{{HOME}}{{DOWN {position}}}"
+            send_keys(f"{keys}{{ENTER}}", pause=pause)
+            time.sleep(0.5)
+
+            dialog_spec = window.native.child_window(**result_criteria)
+            try:
+                dialog_spec.wait("exists visible", timeout=timeout, retry_interval=0.3)
+            except self._timeout_error_types():
+                logger.debug(
+                    "select_export_format: no dialog appeared for entry %d", position
+                )
+                continue
+            dialog = dialog_spec.wrapper_object()
+            try:
+                title = dialog.window_text() or ""
+            except Exception:  # noqa: BLE001 - a dialog that will not answer
+                title = ""
+
+            if target.value.lower() in title.lower():
+                logger.info(
+                    "Export format menu: '%s' matched at entry %d", title, position
+                )
+                return
+
+            logger.debug(
+                "Export format menu: '%s' at entry %d is not '%s' - trying the next entry",
+                title,
+                position,
+                target.value,
+            )
+            try:
+                dialog_spec.child_window(
+                    auto_id="btnCancel", control_type="Button"
+                ).wrapper_object().click_input()
+            except Exception as exc:  # noqa: BLE001 - report what went wrong
+                raise ControlNotFoundError(
+                    f"Could not cancel the '{title}' dialog while looking for "
+                    f"'{target.value}': {exc}"
+                ) from exc
+            time.sleep(0.4)
+
+        raise ControlNotFoundError(
+            f"Could not find a '{target.value}' entry in the export format "
+            f"menu after {target.max_tries} tries.",
+            hint=(
+                "Open 'Export To' by hand in NS Retail and check whether that "
+                "format is still offered."
+            ),
         )
 
     # -- grids -----------------------------------------------------------
