@@ -154,17 +154,25 @@ class UiTarget:
 
 @dataclass(frozen=True)
 class WindowSpec:
-    """How to recognise one of the application's windows."""
+    """How to recognise one of the application's windows.
+
+    NS Retail keeps almost everything inside its main form: the print preview,
+    the Include/Exclude dialog and the report screens are all child windows,
+    not top-level ones. ``inside`` names the window they live in; without it
+    the window is looked for among the desktop's top-level windows.
+    """
 
     key: str
     title: str = ""
     title_re: str = ""
     class_name: str = ""
     control_type: str = ""
+    auto_id: str = ""
+    inside: str = ""
     timeout_seconds: float | None = None
 
     def is_configured(self) -> bool:
-        return bool(self.title or self.title_re or self.class_name)
+        return bool(self.title or self.title_re or self.class_name or self.auto_id)
 
     def search_criteria(self) -> dict[str, Any]:
         criteria: dict[str, Any] = {}
@@ -176,6 +184,8 @@ class WindowSpec:
             criteria["class_name"] = self.class_name
         if self.control_type:
             criteria["control_type"] = self.control_type
+        if self.auto_id:
+            criteria["auto_id"] = self.auto_id
         return criteria
 
 

@@ -189,14 +189,26 @@ def print_selector_suggestions(root: ControlInfo, *, stream=sys.stdout) -> None:
         print("  " + json.dumps(selector), file=stream)
 
 
+def countdown(seconds: float, what: str) -> None:
+    print(f"{what} - reading in {seconds:.0f} seconds...")
+    for remaining in range(int(seconds), 0, -1):
+        print(f"  {remaining}...", end="\r", flush=True)
+        time.sleep(1)
+    print(" " * 24, end="\r")
+
+
 def resolve_window(
     backend: AutomationBackend,
     *,
     title_re: str | None,
     class_name: str | None,
-    delay: float,
+    delay: float | None,
 ) -> WindowRef:
     if title_re or class_name:
+        if delay:
+            # Gives the operator time to open a menu or dialog that would close
+            # if they had to switch to the console first.
+            countdown(delay, "Open the menu or dialog you want to capture")
         spec = WindowSpec(key="inspected", title_re=title_re or "", class_name=class_name or "")
         window = backend.find_window(spec)
         if window is None:
@@ -207,12 +219,9 @@ def resolve_window(
             )
         return window
 
-    if delay > 0:
-        print(f"Click the NS Retail window you want to inspect - reading it in {delay:.0f} seconds...")
-        for remaining in range(int(delay), 0, -1):
-            print(f"  {remaining}...", end="\r", flush=True)
-            time.sleep(1)
-        print(" " * 20, end="\r")
+    wait = 5.0 if delay is None else delay
+    if wait > 0:
+        countdown(wait, "Click the window you want to inspect")
     window = backend.active_window()
     if window is None:
         raise AutomationError(
@@ -242,8 +251,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--delay",
         type=float,
-        default=5.0,
-        help="seconds to wait before reading the active window (default: 5)",
+        default=None,
+        help=(
+            "seconds to wait before reading, so a menu or dialog can be opened "
+            "first (default: 5 when no window is named, otherwise none)"
+        ),
     )
     parser.add_argument("--depth", type=int, default=8, help="how deep to walk the control tree (default: 8)")
     parser.add_argument("--json", dest="json_path", help="also write the full tree to this JSON file")

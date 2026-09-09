@@ -264,6 +264,29 @@ class WindowsBackend(AutomationBackend):
                 f"{timeout:.0f} seconds."
             ) from exc
 
+    def wait_for_child_window(
+        self, parent: WindowRef, spec: WindowSpec, *, timeout: float
+    ) -> WindowRef:
+        ensure_available()
+        criteria = spec.search_criteria()
+        if not criteria:
+            raise WindowNotFoundError(
+                f"The '{spec.key}' window has no identifying details configured."
+            )
+        window_spec = parent.native.child_window(**criteria)
+        described = ", ".join(f"{k}={v!r}" for k, v in criteria.items())
+        try:
+            window_spec.wait("exists visible", timeout=timeout, retry_interval=0.5)
+            wrapper = window_spec.wrapper_object()
+        except self._timeout_error_types() as exc:
+            raise WindowNotFoundError(
+                f"The '{spec.key}' window did not appear inside "
+                f"'{parent.info.title}' within {timeout:.0f} seconds.",
+                hint=f"Looked for: {described}.",
+            ) from exc
+        logger.debug("Found child window '%s'", spec.key)
+        return self._wrap(window_spec, wrapper)
+
     def child_window_ref(self, window: WindowRef, criteria: dict[str, Any]) -> WindowRef:
         ensure_available()
         if not criteria:

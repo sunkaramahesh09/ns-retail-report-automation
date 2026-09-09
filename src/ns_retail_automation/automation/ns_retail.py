@@ -309,10 +309,14 @@ class NSRetailAutomation:
 
         spec = self.selectors.window("report_viewer")
         timeout = spec.timeout_seconds or report_settings.generation_timeout_seconds
-        pid = self.state.process.pid if self.state.process else None
-        logger.info("Waiting up to %.0f seconds for the Report Viewer", timeout)
+        logger.info("Waiting up to %.0f seconds for the report preview", timeout)
         try:
-            viewer = self.backend.wait_for_window(spec, timeout=timeout, process_id=pid)
+            if spec.inside:
+                parent = self._window_by_key(spec.inside)
+                viewer = self.backend.wait_for_child_window(parent, spec, timeout=timeout)
+            else:
+                pid = self.state.process.pid if self.state.process else None
+                viewer = self.backend.wait_for_window(spec, timeout=timeout, process_id=pid)
         except AutomationError as exc:
             raise ReportViewerError(
                 f"The Report Viewer did not appear within {timeout:.0f} seconds.",
@@ -322,7 +326,7 @@ class NSRetailAutomation:
                 ),
             ) from exc
         self.state.report_viewer = viewer
-        logger.info("Report Viewer detected ('%s')", viewer.info.title)
+        logger.info("Report preview detected ('%s')", viewer.info.title)
         return viewer
 
     # ------------------------------------------------------------------
@@ -406,7 +410,12 @@ class NSRetailAutomation:
         """Resolve the window a step runs in."""
         return self._window_by_key(step.window or "main")
 
-    def _window_by_key(self, key: str) -> WindowRef:
+    def _window_by_key(self, key: str, *, seen: tuple[str, ...] = ()) -> WindowRef:
+        if key in seen:
+            raise ConnectionError_(
+                "Window definitions refer to each other in a loop: "
+                + " -> ".join([*seen, key])
+            )
         if key == "main":
             if self.state.main_window is None:
                 raise ConnectionError_(
@@ -419,6 +428,9 @@ class NSRetailAutomation:
 
         spec = self.selectors.window(key)
         timeout = spec.timeout_seconds or self.settings.timeouts.window_seconds
+        if spec.inside:
+            parent = self._window_by_key(spec.inside, seen=(*seen, key))
+            return self.backend.wait_for_child_window(parent, spec, timeout=timeout)
         pid = self.state.process.pid if self.state.process else None
         return self.backend.wait_for_window(spec, timeout=timeout, process_id=pid)
 

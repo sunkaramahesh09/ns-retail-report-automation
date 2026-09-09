@@ -145,6 +145,12 @@ class AutomationBackend(ABC):
         ...
 
     @abstractmethod
+    def wait_for_child_window(
+        self, parent: WindowRef, spec: WindowSpec, *, timeout: float
+    ) -> WindowRef:
+        """Wait for a window nested inside ``parent`` to appear."""
+
+    @abstractmethod
     def child_window_ref(self, window: WindowRef, criteria: dict[str, Any]) -> WindowRef:
         """A window nested inside another one.
 
@@ -225,6 +231,9 @@ class UnsupportedBackend(AutomationBackend):
 
     def wait_for_window_closed(self, window, *, timeout):
         return self._fail("wait for a window to close")
+
+    def wait_for_child_window(self, parent, spec, *, timeout):
+        return self._fail("wait for a window inside another window")
 
     def child_window_ref(self, window, criteria):
         return self._fail("find a window inside another window")
