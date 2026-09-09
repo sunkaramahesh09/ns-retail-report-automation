@@ -42,6 +42,9 @@ STEP_OPEN_REPORTS = "open_reports"
 STEP_OPEN_STOCK_REPORTS = "open_stock_reports"
 STEP_SELECT_PURCHASE_REPORT = "select_purchase_report"
 STEP_SET_DATE = "set_date"
+STEP_OPEN_COLUMN_SETTINGS = "open_column_settings"
+STEP_INCLUDE_ALL_COLUMNS = "include_all_columns"
+STEP_APPLY_AND_SEARCH = "apply_and_search"
 STEP_SEARCH = "search"
 STEP_GENERATE_REPORT = "generate_report"
 STEP_EXPORT_TO = "export_to"
@@ -56,6 +59,9 @@ PURCHASE_REPORT_STEPS = (
     STEP_OPEN_STOCK_REPORTS,
     STEP_SELECT_PURCHASE_REPORT,
     STEP_SET_DATE,
+    STEP_OPEN_COLUMN_SETTINGS,
+    STEP_INCLUDE_ALL_COLUMNS,
+    STEP_APPLY_AND_SEARCH,
     STEP_SEARCH,
     STEP_GENERATE_REPORT,
     STEP_EXPORT_TO,
@@ -63,6 +69,19 @@ PURCHASE_REPORT_STEPS = (
     STEP_CONFIRM_EXPORT,
     STEP_SAVE_SET_PATH,
     STEP_SAVE_CONFIRM,
+)
+
+#: Steps that are skipped when they are not mapped, because whether they exist
+#: depends on how the operator works. The Include/Exclude column dialog (F3)
+#: is one of these: it is part of the manual routine, but the report can also
+#: be searched for directly.
+OPTIONAL_STEPS = frozenset(
+    {
+        STEP_OPEN_COLUMN_SETTINGS,
+        STEP_INCLUDE_ALL_COLUMNS,
+        STEP_APPLY_AND_SEARCH,
+        STEP_SEARCH,
+    }
 )
 
 
@@ -100,8 +119,18 @@ class NSRetailAutomation:
     # Readiness
     # ------------------------------------------------------------------
     def missing_steps(self, steps: tuple[str, ...] = PURCHASE_REPORT_STEPS) -> list[str]:
-        """Steps that still need control details from the Windows PC."""
-        missing = list(self.selectors.missing_steps(list(steps)))
+        """Steps that still need control details from the Windows PC.
+
+        Optional steps are not reported as missing, but the search has to
+        happen somehow, so one of 'apply_and_search' or 'search' is required.
+        """
+        required = [name for name in steps if name not in OPTIONAL_STEPS]
+        missing = list(self.selectors.missing_steps(required))
+        if not (
+            self.selectors.has_step(STEP_APPLY_AND_SEARCH)
+            or self.selectors.has_step(STEP_SEARCH)
+        ):
+            missing.append(f"{STEP_APPLY_AND_SEARCH} or {STEP_SEARCH}")
         if self.settings.login.enabled and not self.selectors.has_step(STEP_LOGIN):
             missing.append(STEP_LOGIN)
         return missing
@@ -252,6 +281,22 @@ class NSRetailAutomation:
         self._run_step(STEP_SET_DATE, context=_date_context(report_date))
 
     def search(self) -> None:
+        """Run the search, including the Include/Exclude column dialog.
+
+        The manual routine is: press F3, tick the columns to include, then
+        'Apply and Search'. Each part is a separate step so it can be mapped -
+        or left out - on its own.
+        """
+        for name in (STEP_OPEN_COLUMN_SETTINGS, STEP_INCLUDE_ALL_COLUMNS):
+            if self.selectors.has_step(name):
+                logger.info("Running '%s'", name.replace("_", " "))
+                self._run_step(name)
+
+        if self.selectors.has_step(STEP_APPLY_AND_SEARCH):
+            logger.info("Applying the column settings and searching")
+            self._run_step(STEP_APPLY_AND_SEARCH)
+            return
+
         logger.info("Running Search")
         self._run_step(STEP_SEARCH)
 
@@ -358,7 +403,9 @@ class NSRetailAutomation:
     # ------------------------------------------------------------------
     def _window_for(self, step: Step) -> WindowRef:
         """Resolve the window a step runs in."""
-        key = step.window or "main"
+        return self._window_by_key(step.window or "main")
+
+    def _window_by_key(self, key: str) -> WindowRef:
         if key == "main":
             if self.state.main_window is None:
                 raise ConnectionError_(
@@ -387,15 +434,21 @@ class NSRetailAutomation:
         effective_timeout = timeout or self.settings.timeouts.control_seconds
         retry_settings = self.settings.retry
 
+        step_window_key = step.window or "main"
         for target in step.targets:
             resolved = _resolve_value(target, context or {}, step_name=name)
+            # A target may live in another window, e.g. a dialog this step
+            # opened. That choice applies to this target only.
+            window_for_target = target_window
+            if resolved.window and resolved.window != step_window_key:
+                window_for_target = self._window_by_key(resolved.window)
             # Only the search criteria are logged - a value may hold a password.
             label = resolved.label()
             logger.debug("Step '%s': %s (%s)", name, label, resolved.action)
             try:
                 retry_call(
-                    lambda t=resolved: self.backend.perform(
-                        target_window, t, timeout=t.timeout_seconds or effective_timeout
+                    lambda t=resolved, w=window_for_target: self.backend.perform(
+                        w, t, timeout=t.timeout_seconds or effective_timeout
                     ),
                     attempts=retry_settings.attempts,
                     delay=retry_settings.delay_seconds,

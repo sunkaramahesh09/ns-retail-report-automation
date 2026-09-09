@@ -50,7 +50,9 @@ class UiTarget:
 
     action: str = "click"
     description: str = ""
-    window: str = "main"
+    #: Empty means "the window the step runs in". Set it when a single step
+    #: has to reach into another window, such as a dialog it just opened.
+    window: str = ""
     control_type: str = ""
     title: str = ""
     title_re: str = ""
@@ -99,12 +101,20 @@ class UiTarget:
             label = f"{label} inside [{inside}]"
         return label
 
+    def targets_window_itself(self) -> bool:
+        """A send_keys target with no criteria types into the window itself."""
+        return self.action == "send_keys" and not self.search_criteria()
+
     def validate(self, where: str) -> None:
         if self.action not in VALID_ACTIONS:
             raise ConfigError(
                 f"{where}: action '{self.action}' is not supported.",
                 hint="Valid actions: " + ", ".join(VALID_ACTIONS),
             )
+        if self.targets_window_itself():
+            if not self.value:
+                raise ConfigError(f"{where}: 'send_keys' needs a 'value'.")
+            return
         if not self.search_criteria():
             raise ConfigError(
                 f"{where}: no search criteria given.",

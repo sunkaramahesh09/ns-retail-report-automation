@@ -3,49 +3,50 @@
     "How the automation finds each NS Retail control.",
     "Tracked in git: no paths, no credentials - only control identities.",
     "",
-    "CONFIRMED entries were read from the real application with",
-    "    scripts\\inspect_windows.bat <name> \"Victory Bazars.*\"",
-    "TODO entries still need a capture of the matching screen.",
+    "The real routine, as described by the operator:",
+    "  Reports -> Stock Reports -> Purchases -> set the date -> F3 ->",
+    "  tick the columns -> Apply and Search -> Report -> Export To -> CSV",
     "",
-    "Progress:  .venv\\Scripts\\python.exe -m ns_retail_automation --check"
+    "CONFIRMED entries were read from the running application.",
+    "TODO entries still need a capture of the matching screen.",
+    "Progress:  .venv\\Scripts\\python.exe -m ns_retail_automation --list-steps"
   ],
-
   "windows": {
     "_comment": "NS Retail is a WinForms MDI app (main form auto_id 'frmMain'). Screens open inside the main window and the title becomes 'Victory Bazars - [<screen>]'. The WindowsForms10 class-name suffix changes between launches - match on the title.",
-
     "main": {
       "_status": "CONFIRMED 2026-09-09 - title 'Victory Bazars', auto_id 'frmMain'",
       "title_re": "^Victory Bazars",
       "timeout_seconds": 60
     },
-
     "login": {
       "_status": "TODO - not needed while login.enabled is false",
       "title_re": ""
     },
-
     "report_viewer": {
       "_status": "CONFIRMED 2026-09-09 - MDI child 'frmReportPlaceHolder', seen as a title change",
       "title_re": "Victory Bazars - \\[Report Viewer\\]",
       "timeout_seconds": 300
     },
-
     "export_dialog": {
       "_status": "TODO - capture the Export To dialog",
       "title_re": ""
     },
-
     "save_dialog": {
       "_status": "TODO - capture the Save As dialog",
       "title_re": ""
+    },
+    "column_settings": {
+      "_status": "PARTLY CONFIRMED 2026-09-09 - seen on screen as 'Include Exclude Settings'; title still to be verified by inspection",
+      "title_re": "Include Exclude Settings",
+      "timeout_seconds": 30
     }
   },
-
   "steps": {
     "_comment": "Each step lists the controls to act on, in order.",
-
-    "login": { "window": "login", "targets": [] },
-
+    "login": {
+      "window": "login",
+      "targets": []
+    },
     "open_reports": {
       "window": "main",
       "description": "CONFIRMED - the 'Reports' tab on the ribbon.",
@@ -55,11 +56,12 @@
           "description": "Reports ribbon tab",
           "control_type": "TabItem",
           "title": "Reports",
-          "parent": { "auto_id": "ribbonControl1" }
+          "parent": {
+            "auto_id": "ribbonControl1"
+          }
         }
       ]
     },
-
     "open_stock_reports": {
       "window": "main",
       "description": "CONFIRMED - 'Stock Reports' button in the Reports ribbon group. Scoped to the ribbon because a second button with the same name lives in the left auto-hide panel.",
@@ -69,17 +71,17 @@
           "description": "Stock Reports button on the ribbon",
           "control_type": "Button",
           "title": "Stock Reports",
-          "parent": { "auto_id": "ribbonControl1" }
+          "parent": {
+            "auto_id": "ribbonControl1"
+          }
         }
       ]
     },
-
     "select_purchase_report": {
       "window": "main",
       "description": "TODO - capture the screen after Stock Reports opens, where Purchases is chosen.",
       "targets": []
     },
-
     "set_date": {
       "window": "main",
       "description": "CONFIRMED - From/To date pickers. The Edit inside each picker has an automation id that is really a window handle and changes every launch, so it is found through its parent ComboBox instead.",
@@ -88,44 +90,87 @@
           "action": "set_text",
           "description": "From Date",
           "control_type": "Edit",
-          "parent": { "auto_id": "dtpFromDate" },
+          "parent": {
+            "auto_id": "dtpFromDate"
+          },
           "value": "{date_dd_month_yyyy}"
         },
         {
           "action": "set_text",
           "description": "To Date",
           "control_type": "Edit",
-          "parent": { "auto_id": "dtpToDate" },
+          "parent": {
+            "auto_id": "dtpToDate"
+          },
           "value": "{date_dd_month_yyyy}"
         }
       ]
     },
-
+    "open_column_settings": {
+      "window": "main",
+      "description": "CONFIRMED by the operator - F3 on the Purchases screen opens the Include/Exclude column dialog.",
+      "targets": [
+        {
+          "action": "send_keys",
+          "description": "F3 (opens Include Exclude Settings)",
+          "value": "{F3}"
+        }
+      ]
+    },
+    "include_all_columns": {
+      "window": "column_settings",
+      "description": "TODO - tick every column in the Include Exclude Settings dialog. Needs a capture of that dialog.",
+      "targets": []
+    },
+    "apply_and_search": {
+      "window": "column_settings",
+      "description": "TODO - the 'Apply and Search' button in the Include Exclude Settings dialog.",
+      "targets": []
+    },
     "search": {
       "window": "main",
       "description": "CONFIRMED - Search button (auto_id btnSearch).",
       "targets": [
-        { "action": "invoke", "description": "Search", "auto_id": "btnSearch", "control_type": "Button" }
+        {
+          "action": "invoke",
+          "description": "Search",
+          "auto_id": "btnSearch",
+          "control_type": "Button"
+        }
       ]
     },
-
     "generate_report": {
       "window": "main",
       "description": "CONFIRMED - Report button (auto_id btnReport).",
       "targets": [
-        { "action": "invoke", "description": "Report", "auto_id": "btnReport", "control_type": "Button" }
+        {
+          "action": "invoke",
+          "description": "Report",
+          "auto_id": "btnReport",
+          "control_type": "Button"
+        }
       ]
     },
-
     "export_to": {
       "window": "report_viewer",
       "description": "TODO - capture the generated report and its Export To control.",
       "targets": []
     },
-
-    "choose_csv_format": { "window": "report_viewer", "targets": [] },
-    "confirm_export": { "window": "report_viewer", "targets": [] },
-    "save_set_path": { "window": "save_dialog", "targets": [] },
-    "save_confirm": { "window": "save_dialog", "targets": [] }
+    "choose_csv_format": {
+      "window": "report_viewer",
+      "targets": []
+    },
+    "confirm_export": {
+      "window": "report_viewer",
+      "targets": []
+    },
+    "save_set_path": {
+      "window": "save_dialog",
+      "targets": []
+    },
+    "save_confirm": {
+      "window": "save_dialog",
+      "targets": []
+    }
   }
 }

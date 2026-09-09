@@ -298,12 +298,39 @@ class WindowsBackend(AutomationBackend):
             raise ControlNotFoundError(
                 f"Could not find the control for '{target.label()}' within "
                 f"{timeout:.0f} seconds.",
-                hint=(
-                    "The control details in config/selectors.json may be wrong. "
-                    "Re-run the inspection tool on this screen to check them."
-                ),
+                hint=self._not_found_hint(window),
             ) from exc
         return control.wrapper_object()
+
+    def _not_found_hint(self, window: WindowRef) -> str:
+        """Explain the most likely reason a control could not be reached.
+
+        A modal dialog disables everything behind it, so the control is present
+        but never becomes enabled - which looks identical to a wrong selector
+        unless the open dialogs are named.
+        """
+        base = (
+            "The control details in config/selectors.json may be wrong. "
+            "Re-run the inspection tool on this screen to check them."
+        )
+        try:
+            others = [
+                info.title
+                for info in self.list_windows()
+                if info.title
+                and info.process_id == window.info.process_id
+                and info.title != window.info.title
+            ]
+        except Exception:  # noqa: BLE001 - the hint must never fail
+            return base
+        if others:
+            return (
+                "These other NS Retail windows are open: "
+                + ", ".join(f"'{title}'" for title in others)
+                + ". A dialog on top disables the window behind it - close it "
+                "and try again. " + base
+            )
+        return base
 
     def control_exists(
         self, window: WindowRef, target: UiTarget, *, timeout: float = 0.0
@@ -327,6 +354,13 @@ class WindowsBackend(AutomationBackend):
         ensure_available()
         action = target.action
         effective_timeout = target.timeout_seconds or timeout
+
+        if target.targets_window_itself():
+            # A keystroke aimed at the screen rather than at one control, such
+            # as F3 opening NS Retail's Include/Exclude dialog.
+            self.focus_window(window)
+            window.native.type_keys(target.value, with_spaces=True, set_foreground=True)
+            return
 
         if action == "menu_select":
             # Classic menu bars are addressed by their path, not by a child window.
