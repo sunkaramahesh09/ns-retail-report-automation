@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 import platform
 import sys
+import warnings
 from dataclasses import dataclass
 
 #: Packages needed for the Windows automation to work.
@@ -62,7 +63,11 @@ def _package_status(name: str, *, required: bool) -> PackageStatus:
     error = ""
     if required and is_windows():
         try:
-            importlib.import_module(name)
+            with warnings.catch_warnings():
+                # pywinauto warns about COM init flags on import; that is not a
+                # problem with the installation and only confuses the report.
+                warnings.simplefilter("ignore")
+                importlib.import_module(name)
         except Exception as exc:  # noqa: BLE001 - any import failure disqualifies it
             error = f"{type(exc).__name__}: {exc}"
 
