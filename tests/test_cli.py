@@ -72,7 +72,21 @@ class TestOtherCommands:
         out = capsys.readouterr().out
         assert "Environment" in out
         assert "NS Retail control mapping" in out
+
+    def test_check_reports_unmapped_steps(self, project_config, capsys, tmp_path):
+        """With an empty selector file, --check must say what is missing."""
+        empty = tmp_path / "selectors.json"
+        empty.write_text('{"windows": {}, "steps": {}}', encoding="utf-8")
+        assert main(["--check", "--config", project_config, "--selectors", str(empty)]) == EXIT_OK
+        out = capsys.readouterr().out
         assert "Steps still to map" in out
+        assert "open_reports" in out
+
+    def test_check_reports_a_complete_mapping(self, project_config, capsys):
+        """The project's own selector file is complete, so --check says so."""
+        main(["--check", "--config", project_config, "--selectors", "config/selectors.json"])
+        out = capsys.readouterr().out
+        assert "All required windows and steps are mapped." in out
 
     def test_list_reports(self, project_config, capsys):
         assert main(["--list-reports", "--config", project_config]) == EXIT_OK
