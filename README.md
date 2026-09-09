@@ -1,8 +1,9 @@
 # NS Retail Report Automation
 
-Automates the daily report chore for **NS Retail v4.0.3** (Windows desktop app):
+Automates the daily report chore for **NS Retail v4.0.3** (Windows desktop app),
+for four reports — Purchases, Dispatches, Sales, Stock As on date:
 
-> open NS Retail → Reports → Stock Reports → Purchases → pick the date → Search →
+> open NS Retail → Reports → Stock Reports → <report> → pick the date → Search →
 > Report → Report Viewer → Export To → CSV → save into the day-wise folder.
 
 The automation itself **only runs on Windows** (that is where NS Retail lives).
@@ -17,19 +18,25 @@ far with its fix. [`docs/STATUS.md`](docs/STATUS.md) has the current state.
 
 ## Status
 
+See [`docs/STATUS.md`](docs/STATUS.md) for the full, actively-maintained
+picture. Short version as of 2026-09-09:
+
 | Area | State |
 |---|---|
 | Configuration, dates, folders, filenames, existing-file safety | **Implemented and tested** |
 | Logging, CLI, dry run, environment checks | **Implemented and tested** |
-| Windows automation layer (pywinauto / UI Automation) | **Implemented, not yet verified against NS Retail** |
-| Read-only Windows inspection tool | **Implemented, needs a Windows PC to run** |
-| The actual NS Retail control mapping (which button is which) | **NOT DONE — this is Phase 2** |
+| Windows automation layer (pywinauto / UI Automation) | **Implemented and verified live** |
+| Read-only Windows inspection tool | **Implemented and used daily for diagnosis** |
+| NS Retail control mapping (`config/selectors.json`) | **Done for all four reports** |
+| Purchases, Dispatches | **Verified with real, successful runs** |
+| Sales | Mapped; export step fails on this report's size (~8,300 pages) — see STATUS.md |
+| Stock As on date | Mapped and dry-run verified; not yet run live |
+| Chained runs (every enabled report, one after another) | Chaining mechanism verified live; a full four-report run is blocked on the Sales issue above |
 
 The control details for NS Retail are deliberately **not** in the code. Nothing
 in this project guesses an automation id, a control name or a screen
-coordinate. They live in `config/selectors.json`, which you fill in on the
-Windows PC using the inspection tool. Until then every automation step fails
-with a message naming the step that still has to be mapped.
+coordinate. They live in `config/selectors.json`, filled in on the Windows PC
+using the inspection tool.
 
 ---
 

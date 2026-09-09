@@ -4,25 +4,28 @@ Everything needed to run, fix, extend or hand over this project. Written so
 someone arriving cold — a person or a new Claude session — can pick it up
 without the original conversation.
 
-Last full update: 2026-09-09.
+Last full update: 2026-09-09 (evening) — Dispatches/Sales/Stock As on date
+added, chained multi-report runs, Sales export-timing issue found.
 
 ---
 
 ## 1. What this replaces
 
 A daily manual routine in **NS Retail v4.0.3** (WinForms desktop app, titled
-"Victory Bazars"):
+"Victory Bazars"), repeated for each of four reports (Purchases, Dispatches,
+Sales, Stock As on date):
 
 ```
-open NS Retail → log in → Reports → Stock Reports → Purchases
-  → set From Date and To Date to yesterday
+open NS Retail → log in → Reports → Stock Reports → <report>
+  → set the date(s) to yesterday
   → F3 → tick every column → Apply and Search
   → Report → wait for the preview
   → Export To → CSV File → OK
   → type a file name → Save into the day-wise folder
 ```
 
-The automation performs all of it and files the CSV as, for example:
+The automation performs all of it, for every enabled report in one sitting,
+and files each CSV as, for example:
 
 ```
 D:\2026-27 DAY WISE REPORTS\
@@ -31,6 +34,12 @@ D:\2026-27 DAY WISE REPORTS\
       08.09.2026\
         08.09.2026.csv
 ```
+
+Dispatches, Sales and Stock As on date each get their own folder tree under
+`storage_overrides.base_path` (e.g. `...\Dispatches\...`) — see
+`config/config.example.json`. Stock As on date is a snapshot report: its
+screen has one date field (`dtAsOnDate`) instead of the From/To pair every
+other report uses.
 
 ---
 
@@ -42,14 +51,27 @@ scripts\run_report.bat go                 REM real run for yesterday
 scripts\run_report.bat go 08-09-2026      REM real run for one date
 ```
 
-Or directly:
+With no `--report`, the automation runs **every report with `enabled: true`
+in `config.json`, one after another, on a single NS Retail session** — this
+is what `run_report.bat` does. Each report ends with its own "report saved"
+popup; because that popup is a blocking dialog in the same process, **the
+operator clicking its OK button is what lets the automation move on to the
+next report**. If a report fails, the sequence stops right there instead of
+pressing on to reports likely to hit the same problem — fix it and rerun the
+ones that did not finish.
+
+To run just one report, pass `--report <key>` directly:
 
 ```bat
 .venv\Scripts\python.exe -m ns_retail_automation --report purchases --date yesterday
+.venv\Scripts\python.exe -m ns_retail_automation --report dispatches --date yesterday
+.venv\Scripts\python.exe -m ns_retail_automation --report sales --date yesterday
+.venv\Scripts\python.exe -m ns_retail_automation --report stock_as_on_date --date yesterday
 ```
 
-Useful flags: `--dry-run`, `--check`, `--list-steps`, `--on-existing skip|overwrite|duplicate|ask`,
-`-v` for full detail, `--yes` for unattended runs.
+Useful flags: `--dry-run`, `--check`, `--list-steps`, `--list-reports`,
+`--on-existing skip|overwrite|duplicate|ask`, `-v` for full detail, `--yes`
+for unattended runs.
 
 Exit codes: `0` success · `1` automation failed · `2` configuration problem ·
 `3` skipped because the report already existed.
@@ -139,6 +161,11 @@ src/ns_retail_automation/
     selectors.py       control definitions, loaded from config/selectors.json
     ns_retail.py       the workflow, one method per step
   reports/             plan → run → verify
+    base.py                    shared workflow every report uses
+    purchase_report.py         Purchases
+    dispatch_report.py         Dispatches
+    sales_report.py            Sales
+    stock_as_on_date_report.py Stock As on date (overrides set_date - single field)
   filesystem/          folders, filenames, duplicates, verification
   utils/               dates, retries, explicit waits
 config/selectors.json  THE CONTROL MAP - tracked in git, read this first
@@ -178,6 +205,7 @@ the way it does.
 | The Export To split button repeats the **last used format** | Used deliberately (CSV), then verified twice: the options dialog must be the CSV one, and the save dialog's file type must say CSV |
 | DevExpress menus **drop key presses** sent at full speed, and open on the last-used entry | The keyboard fallback needs `{UP 12}{DOWN 7}{ENTER}` at `pause_seconds: 0.4` |
 | The Save As dialog accepts a **full path** in its File name box (`Edit` auto_id `1001`) | No folder navigation at all — the whole path is typed at once |
+| A very large report (Sales with every column, ~8,300 pages) leaves **"Export To" as a disabled plain `Button`** for minutes after the Preview window itself appears — it only becomes an enabled `SplitButton` once NS Retail finishes processing internally | `export_to` waits up to 90s per attempt, 3 attempts — still not always enough for Sales; see §7 and `docs/STATUS.md` |
 
 ### The control map, in short
 
@@ -190,7 +218,9 @@ the way it does.
 | Save As | child of preview, `title: Save As`, `class_name: #32770` |
 | Reports tab | `TabItem "Reports"` inside `ribbonControl1` |
 | Stock Reports | `Button "Stock Reports"` inside `ribbonControl1` |
-| dates | `Edit` inside `dtpFromDate` / `dtpToDate` |
+| Purchases / Dispatches / Sales / Stock As on date | `TreeItem` in the catalog tree `tlReport` (Node numbers, not names - see `config/selectors.json` for which) |
+| dates (range reports) | `Edit` inside `dtpFromDate` / `dtpToDate` |
+| date (Stock As on date only) | `Edit` inside `dtAsOnDate` |
 | column grid | `Table auto_id gcIncExc` |
 | Apply and Search | `btnApplyAndSearch` |
 | Report | `btnReport` |
@@ -238,30 +268,51 @@ except `try_step` and `send_keys`.
 | Setup reuses a broken `.venv` | Fixed: setup rebuilds it when the interpreter is unusable. `scripts\setup_windows.bat fresh` forces it |
 | A step "succeeded" but nothing changed | `set_text` now reads the field back and warns if the value did not take |
 | Wrong export format | Verified in two places; the run stops rather than writing the wrong thing |
+| Sales fails at `export_to`: `Could not find the control for 'Export To dropdown arrow'` | Confirmed live (read-only, `scripts\find_control.bat Export "Victory Bazars - \[Report Viewer\]"` while the failed Preview was still open): the control was a **disabled `Button`**, not the expected `SplitButton` — NS Retail had not finished internally processing the ~8,300-page report yet, even though the Preview window had already appeared. It turned into an enabled `SplitButton` on its own a few minutes later. Not yet fixed — the operator is checking whether Sales actually needs every column ticked (a smaller report would sidestep this); do not change `include_all_columns`/export timeouts for Sales until that is confirmed. See `docs/STATUS.md` |
 
 ---
 
 ## 8. Where the project stands
 
-See `docs/STATUS.md` for the live state. As of 2026-09-09: all fourteen
-workflow steps are mapped; connect, `open_reports`, `open_stock_reports`,
-`set_date`, `open_column_settings`, `apply_and_search` and the export chain are
-verified against the running application; the full end-to-end run has not yet
-completed.
+See `docs/STATUS.md` for the full live state, kept up to date every session —
+read it first. Summary as of 2026-09-09 evening:
 
-153 tests pass on macOS, covering dates, fiscal years, folder structure,
-filenames, existing-file handling, configuration, selectors, retries, waits,
-the CLI and the workflow's ordering. Windows-only tests are marked and skipped
-elsewhere.
+* **Purchases** and **Dispatches** — fully verified live, including the
+  `skip`-on-existing path. Real files confirmed on disk.
+* **Sales** — mapped and reaches the export step every time, but fails there
+  because the report is too large (~8,300 pages with every column) for NS
+  Retail to finish processing within any retry window tried so far. Root
+  cause confirmed, fix pending a decision on whether Sales needs every
+  column (waiting on the operator's manager). **Not yet successful live.**
+* **Stock As on date** — mapped, dry-run verified, **never attempted live**.
+* **Chained multi-report runs** (no `--report` = run every enabled report in
+  sequence, sharing one NS Retail session) — the chaining mechanism itself is
+  confirmed live (Purchases and Dispatches each correctly skipped and handed
+  off to the next report after the operator dismissed its popup); a full
+  four-report run has not completed clean because it stops at the Sales
+  problem above.
+
+25 CLI/report-job tests plus the rest of the suite pass; one test
+(`test_a_real_run_on_macos_fails_with_a_clear_message`) is written assuming
+automation is unavailable (as on the macOS CI it targets) but will actually
+drive the live NS Retail app if run on a Windows PC where pywinauto works —
+exclude it there with `-k "not test_a_real_run_on_macos_fails_with_a_clear_message"`.
 
 ### Next
 
-1. Complete the end-to-end run and fix what it turns up.
-2. Decide whether the automation should close the preview and report screen
+1. **Waiting on the operator**: confirm with their manager whether Sales
+   needs every column ticked. If not, narrowing `include_all_columns` for
+   Sales (or giving it its own column list) should shrink the report enough
+   to fix the export timeout as a side effect.
+2. Re-run Sales for real once that's settled, and run Stock As on date for
+   real for the first time; confirm a file lands on disk for each.
+3. Run the full chained default end to end once all four reports work
+   individually, to confirm it completes without stopping partway through.
+4. Decide whether the automation should close the preview and report screen
    when it finishes, leaving NS Retail clean.
-3. Set up the office PC (prerequisites above, then `base_path` = `D:\...`).
-4. Map `login` if unattended running is wanted.
-5. Package with PyInstaller so no Python install is needed:
+5. Set up the office PC (prerequisites above, then `base_path` = `D:\...`).
+6. Map `login` if unattended running is wanted.
+7. Package with PyInstaller so no Python install is needed:
    `pyinstaller --onefile --name NS-Retail-Report-Automation --paths src src\ns_retail_automation\main.py`
 
 ---
