@@ -65,6 +65,74 @@ def walk(control: ControlInfo) -> list[ControlInfo]:
     return found
 
 
+def walk_with_path(
+    control: ControlInfo, path: tuple[ControlInfo, ...] = ()
+) -> list[tuple[tuple[ControlInfo, ...], ControlInfo]]:
+    """Every control, together with the ancestors that lead to it."""
+    here = path + (control,)
+    found = [(path, control)]
+    for child in control.children:
+        found.extend(walk_with_path(child, here))
+    return found
+
+
+def short_name(control: ControlInfo) -> str:
+    label = control.automation_id or control.name or control.class_name or "?"
+    return f"{control.control_type or '?'}[{label}]"
+
+
+def print_matches(root: ControlInfo, needle: str, *, stream=sys.stdout) -> int:
+    """Find controls by any part of their name, automation id or type.
+
+    Answers the question that actually comes up: is this control there at all,
+    is it visible and enabled, and what is it nested inside?
+    """
+    wanted = needle.lower()
+    matches = [
+        (path, node)
+        for path, node in walk_with_path(root)
+        if wanted in node.name.lower()
+        or wanted in node.automation_id.lower()
+        or wanted in node.control_type.lower()
+    ]
+    if not matches:
+        print(f"No control matched '{needle}' anywhere in this window.", file=stream)
+        print(
+            "It may belong to a screen that is not open, or be collapsed out of "
+            "the tree entirely.",
+            file=stream,
+        )
+        return 0
+
+    print(f"{len(matches)} control(s) matching '{needle}':\n", file=stream)
+    for path, node in matches:
+        state = []
+        if not node.is_visible:
+            state.append("HIDDEN")
+        if not node.is_enabled:
+            state.append("DISABLED")
+        status = ("  <-- " + ", ".join(state)) if state else "  (visible, enabled)"
+        print(f"  {short_name(node)}{status}", file=stream)
+        if node.name:
+            print(f"      name       : {node.name}", file=stream)
+        if node.automation_id:
+            print(f"      auto_id    : {node.automation_id}", file=stream)
+        if node.class_name:
+            print(f"      class_name : {node.class_name}", file=stream)
+        if node.rectangle:
+            print(f"      rectangle  : {node.rectangle}", file=stream)
+        trail = " > ".join(short_name(item) for item in path) or "(top level)"
+        print(f"      inside     : {trail}", file=stream)
+        if node.children:
+            print(
+                "      children   : "
+                + ", ".join(short_name(child) for child in node.children[:8]),
+                file=stream,
+            )
+        print(file=stream)
+    return len(matches)
+
+
 def print_tree(control: ControlInfo, *, stream=sys.stdout) -> None:
     for node in walk(control):
         print(format_control(node), file=stream)
@@ -162,6 +230,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--depth", type=int, default=8, help="how deep to walk the control tree (default: 8)")
     parser.add_argument("--json", dest="json_path", help="also write the full tree to this JSON file")
+    parser.add_argument(
+        "--find",
+        metavar="TEXT",
+        help=(
+            "show only the controls whose name, automation id or type contains "
+            "TEXT, with where each one sits and whether it is visible/enabled"
+        ),
+    )
     parser.add_argument("--no-suggestions", action="store_true", help="do not print selector suggestions")
     parser.add_argument(
         "--actionable",
@@ -209,6 +285,14 @@ def main(argv: list[str] | None = None) -> int:
             f"pid={window.info.process_id}\n"
         )
         tree = backend.describe_window(window, max_depth=args.depth)
+        if args.find:
+            print_matches(tree, args.find)
+            if args.json_path:
+                Path(args.json_path).write_text(
+                    json.dumps(tree.as_dict(), indent=2), encoding="utf-8"
+                )
+                print(f"Full control tree written to {args.json_path}")
+            return 0
         if args.actionable:
             total = len(walk(tree))
             shown = print_actionable(tree)
