@@ -63,10 +63,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--list-steps", action="store_true", help="list the workflow steps and whether each is mapped")
     parser.add_argument(
         "--try-step",
-        metavar="STEP",
+        metavar="STEP[,STEP...]",
         help=(
-            "run ONE step against the running NS Retail, for testing a newly "
-            "mapped selector (this does click in the application)"
+            "run one or more steps against the running NS Retail, for testing "
+            "newly mapped selectors (this does click in the application). "
+            "Several comma-separated steps run back to back without returning "
+            "to the console, which is the only way to test a popup menu: "
+            "clicking back to this window closes it"
         ),
     )
     parser.add_argument("--list-reports", action="store_true", help="list the configured reports and exit")
@@ -274,7 +277,9 @@ def _list_steps(settings: Settings, args: argparse.Namespace) -> int:
 def _try_step(settings: Settings, args: argparse.Namespace) -> int:
     """Run a single step, so a new selector can be verified on its own."""
     automation = _build_automation(settings, args)
-    name = args.try_step
+    names = [name.strip() for name in args.try_step.split(",") if name.strip()]
+    if not names:
+        raise ConfigError("No step name was given to --try-step.")
 
     if not automation.backend.is_supported:
         raise AutomationError(
@@ -293,9 +298,13 @@ def _try_step(settings: Settings, args: argparse.Namespace) -> int:
     print(f"Connecting to {settings.application.name} ...")
     automation.launch()
     automation.connect()
-    print(f"Running step '{name}' ...")
-    automation.run_named_step(name, report_date=report_date)
-    print(f"\nStep '{name}' finished without an error.")
+
+    for name in names:
+        print(f"Running step '{name}' ...")
+        automation.run_named_step(name, report_date=report_date)
+        print(f"  step '{name}' finished without an error.")
+
+    print(f"\n{len(names)} step(s) finished: {', '.join(names)}")
 
     if args.probe:
         # Whatever the step opened is still on screen and still has focus,
