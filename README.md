@@ -184,6 +184,18 @@ scripts\inspect_windows.bat purchases      REM capture one screen to docs\captur
 
 A real run only works once `config/selectors.json` is filled in (Phase 2 below).
 
+**Required Microsoft runtime.** pywinauto loads `win32ui`, which needs the MFC
+runtime (`mfc140u.dll`) from the Microsoft Visual C++ Redistributable. Windows
+does not always have it, and without it setup ends with
+`ImportError: DLL load failed while importing win32ui`. Install it once per PC:
+
+    https://aka.ms/vs/17/release/vc_redist.x64.exe
+
+`scripts\fix_pywin32.bat` diagnoses this and names the missing DLL.
+
+**Python version.** Use Python 3.12 — pywin32 and pywinauto lag behind the
+newest releases. Setup picks `py -3.12` automatically when it is installed.
+
 **PowerShell note.** PowerShell blocks virtual-environment activation by
 default. Either allow it for the current window:
 
