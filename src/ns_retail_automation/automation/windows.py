@@ -538,6 +538,19 @@ class WindowsBackend(AutomationBackend):
                     f"Could not select '{target.value or target.label()}': {exc}"
                 ) from exc
             return
+        if action == "verify_text":
+            actual = self._read_text(wrapper)
+            if target.value.lower() not in actual.lower():
+                raise ControlNotFoundError(
+                    f"{target.label()} says '{actual}', but '{target.value}' was "
+                    "expected.",
+                    hint=(
+                        "The application is not in the state the automation "
+                        "assumed. Nothing was saved."
+                    ),
+                )
+            logger.info("Checked %s: '%s'", target.label(), actual)
+            return
         if action == "check_all_rows":
             self._check_all_rows(wrapper, target)
             return

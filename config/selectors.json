@@ -196,13 +196,17 @@
     },
     "export_to": {
       "window": "report_viewer",
-      "description": "CONFIRMED 2026-09-09 - 'Export To' is a SplitButton in the Preview ribbon's Export toolbar. Opening it shows the format list (PDF/HTML/.../CSV).",
+      "description": "CONFIRMED 2026-09-09 - opens the format list from the dropdown arrow of the 'Export To' split button. Clicking the button's main face instead repeats whatever format was exported last, which would silently produce a PDF inside a file named .csv.",
       "targets": [
         {
           "action": "invoke",
-          "description": "Export To split button",
-          "title": "Export To",
-          "control_type": "SplitButton"
+          "description": "Export To dropdown arrow",
+          "title": "Open",
+          "control_type": "Button",
+          "parent": {
+            "title": "Export To",
+            "control_type": "SplitButton"
+          }
         }
       ]
     },
@@ -225,8 +229,15 @@
     },
     "save_set_path": {
       "window": "save_dialog",
-      "description": "CONFIRMED 2026-09-09 - the File name box is Edit auto_id 1001. A Windows save dialog accepts a full path there, so the whole destination is typed in one go and no folder navigation is needed. The folder is created beforehand by the automation.",
+      "description": "CONFIRMED 2026-09-09 - checks the dialog really is saving CSV, then types the full destination into the File name box (Edit auto_id 1001). A Windows save dialog accepts a complete path, so no folder navigation is needed; the folder is created by the automation beforehand.",
       "targets": [
+        {
+          "action": "verify_text",
+          "description": "Save as type",
+          "auto_id": "FileTypeControlHost",
+          "control_type": "ComboBox",
+          "value": "csv"
+        },
         {
           "action": "set_text",
           "description": "File name",

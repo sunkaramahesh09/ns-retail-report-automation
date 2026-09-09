@@ -27,6 +27,7 @@ VALID_ACTIONS = (
     "send_keys",      # send keystrokes to the control, e.g. "{TAB}" or "^a"
     "menu_select",    # walk a classic menu path, e.g. "Reports->Stock Reports"
     "check_all_rows", # tick every unticked row of a grid, scrolling through it
+    "verify_text",    # read the control and fail unless it contains "value"
     "wait",           # only wait for the control to exist (no interaction)
 )
 
@@ -130,7 +131,7 @@ class UiTarget:
                     "control_type or class_name."
                 ),
             )
-        if self.action in ("set_text", "send_keys", "menu_select") and not self.value:
+        if self.action in ("set_text", "send_keys", "menu_select", "verify_text") and not self.value:
             raise ConfigError(
                 f"{where}: action '{self.action}' needs a 'value'."
             )
