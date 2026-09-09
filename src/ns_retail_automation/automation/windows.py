@@ -647,11 +647,47 @@ class WindowsBackend(AutomationBackend):
         wrapper = window.native.wrapper_object()
         return self._describe_element(wrapper.element_info, depth=0, max_depth=max_depth)
 
+    #: Reading state costs a wrapper per control, so only ask where it means
+    #: something - a grid cell that can be ticked, a field that holds a value.
+    STATEFUL_TYPES = (
+        "CheckBox",
+        "DataItem",
+        "ListItem",
+        "RadioButton",
+        "Edit",
+        "ComboBox",
+        "Custom",
+    )
+
+    def _element_state(self, element: Any) -> tuple[str, str]:
+        """Toggle state and current value of a control, where it has them."""
+        if getattr(element, "control_type", "") not in self.STATEFUL_TYPES:
+            return "", ""
+        try:
+            wrapper = self._pywinauto().controls.uiawrapper.UIAWrapper(element)
+        except Exception:  # noqa: BLE001 - not every element can be wrapped
+            return "", ""
+
+        toggle = ""
+        try:
+            state = wrapper.get_toggle_state()
+            toggle = {0: "off", 1: "on", 2: "indeterminate"}.get(state, str(state))
+        except Exception:  # noqa: BLE001 - no toggle pattern on this control
+            toggle = ""
+
+        value = ""
+        try:
+            value = str(wrapper.legacy_properties().get("Value", "") or "")
+        except Exception:  # noqa: BLE001 - no legacy pattern either
+            value = ""
+        return toggle, value
+
     def _describe_element(self, element: Any, *, depth: int, max_depth: int) -> ControlInfo:
         try:
             rectangle = str(element.rectangle)
         except Exception:  # noqa: BLE001
             rectangle = ""
+        toggle_state, value = self._element_state(element)
         info = ControlInfo(
             depth=depth,
             control_type=getattr(element, "control_type", "") or "",
@@ -663,6 +699,8 @@ class WindowsBackend(AutomationBackend):
             is_enabled=bool(getattr(element, "enabled", True)),
             is_visible=bool(getattr(element, "visible", True)),
             handle=getattr(element, "handle", None),
+            toggle_state=toggle_state,
+            value=value,
             children=[],
         )
         if depth >= max_depth:

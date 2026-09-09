@@ -51,6 +51,10 @@ def format_control(control: ControlInfo, *, indent: str = "  ") -> str:
         bits.append(f'auto_id="{control.automation_id}"')
     if control.class_name:
         bits.append(f'class="{control.class_name}"')
+    if control.toggle_state:
+        bits.append(f"[{control.toggle_state}]")
+    if control.value:
+        bits.append(f'value="{control.value}"')
     if not control.is_enabled:
         bits.append("(disabled)")
     if not control.is_visible:
@@ -119,6 +123,10 @@ def print_matches(root: ControlInfo, needle: str, *, stream=sys.stdout) -> int:
             print(f"      auto_id    : {node.automation_id}", file=stream)
         if node.class_name:
             print(f"      class_name : {node.class_name}", file=stream)
+        if node.toggle_state:
+            print(f"      ticked     : {node.toggle_state}", file=stream)
+        if node.value:
+            print(f"      value      : {node.value}", file=stream)
         if node.rectangle:
             print(f"      rectangle  : {node.rectangle}", file=stream)
         trail = " > ".join(short_name(item) for item in path) or "(top level)"

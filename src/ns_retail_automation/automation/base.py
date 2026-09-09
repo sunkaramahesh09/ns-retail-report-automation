@@ -39,6 +39,10 @@ class ControlInfo:
     is_enabled: bool = True
     is_visible: bool = True
     handle: int | None = None
+    #: "on" / "off" / "indeterminate" for anything that can be ticked.
+    toggle_state: str = ""
+    #: What the control currently shows, where it has a readable value.
+    value: str = ""
     children: list[ControlInfo] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
@@ -52,6 +56,8 @@ class ControlInfo:
             "is_enabled": self.is_enabled,
             "is_visible": self.is_visible,
             "handle": self.handle,
+            "toggle_state": self.toggle_state,
+            "value": self.value,
             "children": [child.as_dict() for child in self.children],
         }
 
