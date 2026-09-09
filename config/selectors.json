@@ -125,8 +125,20 @@
     },
     "include_all_columns": {
       "window": "main",
-      "description": "TODO - tick every column in the Include Exclude Settings dialog. Waiting on a capture of the dialog's grid (scripts\\inspect_dialog.bat frmIncludeExclude).",
-      "targets": []
+      "description": "CONFIRMED 2026-09-09 - the Include/Exclude grid is a DevExpress table (gcIncExc) whose cells report 'Checked'/'Unchecked'. Only unticked rows are touched, so anything already selected stays selected, and the grid is paged through because it only loads visible rows.",
+      "targets": [
+        {
+          "action": "check_all_rows",
+          "description": "tick every column in the Include grid",
+          "auto_id": "gcIncExc",
+          "control_type": "Table",
+          "parent": {
+            "auto_id": "frmIncludeExclude"
+          },
+          "value": "Include",
+          "timeout_seconds": 30
+        }
+      ]
     },
     "apply_and_search": {
       "window": "main",

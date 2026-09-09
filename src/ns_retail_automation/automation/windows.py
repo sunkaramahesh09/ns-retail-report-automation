@@ -37,6 +37,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONTROL_STATES = "exists visible enabled ready"
 
+#: Safety limit when paging through a grid whose length is not known.
+MAX_GRID_PAGES = 40
+
 
 def _digit_groups(text: str) -> list[str]:
     """The runs of digits in a string, e.g. '08 September 2026' -> ['08', '2026']."""
@@ -512,6 +515,9 @@ class WindowsBackend(AutomationBackend):
                     f"Could not select '{target.value or target.label()}': {exc}"
                 ) from exc
             return
+        if action == "check_all_rows":
+            self._check_all_rows(wrapper, target)
+            return
         if action == "set_text":
             self._set_text(wrapper, target)
             return
@@ -563,6 +569,123 @@ class WindowsBackend(AutomationBackend):
                 f"Could not type '{value}' into '{target.label()}': {exc}"
             ) from exc
         self._confirm_text(wrapper, target, value, before, "type_keys")
+
+    # -- grids -----------------------------------------------------------
+    #: Cells report themselves like "Include row 3"; this pulls out the 3.
+    _ROW_NUMBER_RE = re.compile(r"row\s+(\d+)\s*$", re.IGNORECASE)
+
+    def _cell_value(self, cell: Any) -> str:
+        try:
+            return str(cell.legacy_properties().get("Value", "") or "")
+        except Exception:  # noqa: BLE001 - a cell that will not answer
+            return ""
+
+    def _grid_cells(self, grid: Any, prefix: str) -> dict[int, Any]:
+        """The currently loaded cells of one column, keyed by row number."""
+        cells: dict[int, Any] = {}
+        try:
+            items = grid.descendants(control_type="DataItem")
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Could not read the grid rows: %s", exc)
+            return cells
+        for item in items:
+            name = getattr(item.element_info, "name", "") or ""
+            if not name.lower().startswith(prefix.lower()):
+                continue
+            match = self._ROW_NUMBER_RE.search(name)
+            if match:
+                cells[int(match.group(1))] = item
+        return cells
+
+    def _row_labels(self, grid: Any, label_prefix: str) -> dict[int, str]:
+        """What each visible row is called, so the log names real columns."""
+        labels: dict[int, str] = {}
+        for number, cell in self._grid_cells(grid, label_prefix).items():
+            labels[number] = self._cell_value(cell) or f"row {number}"
+        return labels
+
+    def _tick(self, cell: Any, label: str) -> bool:
+        """Turn one cell on, verifying rather than assuming.
+
+        Every attempt is followed by a re-read: a blind second attempt on a
+        checkbox that did work would turn it back off.
+        """
+        for attempt, action in enumerate(("click", "space"), start=1):
+            try:
+                if action == "click":
+                    cell.click_input()
+                else:
+                    cell.type_keys(" ", set_foreground=True)
+            except Exception as exc:  # noqa: BLE001 - try the other technique
+                logger.debug("Could not %s '%s': %s", action, label, exc)
+                continue
+            time.sleep(0.15)
+            if self._cell_value(cell).lower().startswith("check"):
+                logger.info("Ticked '%s' (by %s)", label, action)
+                return True
+            logger.debug("'%s' still off after %s (attempt %d)", label, action, attempt)
+        return False
+
+    def _check_all_rows(self, grid: Any, target: UiTarget) -> None:
+        """Tick every row of a grid column, scrolling to reach them all.
+
+        Only unticked rows are touched, so rows the operator had already
+        selected stay selected. The grid loads rows as they scroll into view,
+        so this pages down until nothing new appears.
+        """
+        prefix = target.value or "Include"
+        label_prefix = "Column Name"
+        seen: set[str] = set()
+        failures: list[str] = []
+        ticked = 0
+
+        for page in range(1, MAX_GRID_PAGES + 1):
+            cells = self._grid_cells(grid, prefix)
+            if not cells:
+                raise ControlNotFoundError(
+                    f"No '{prefix}' cells were found in the grid for "
+                    f"'{target.label()}'.",
+                    hint="The column name may differ; inspect the dialog to check.",
+                )
+            labels = self._row_labels(grid, label_prefix)
+            page_labels = {labels.get(number, f"row {number}") for number in cells}
+
+            for number in sorted(cells):
+                cell = cells[number]
+                label = labels.get(number, f"row {number}")
+                if self._cell_value(cell).lower().startswith("check"):
+                    continue
+                if self._tick(cell, label):
+                    ticked += 1
+                else:
+                    failures.append(label)
+
+            if page_labels and page_labels <= seen:
+                break  # nothing new on this page - the end of the grid
+            seen |= page_labels
+
+            try:
+                grid.type_keys("{PGDN}", set_foreground=True)
+                time.sleep(0.2)
+            except Exception as exc:  # noqa: BLE001 - a grid that will not scroll
+                logger.debug("Could not scroll the grid: %s", exc)
+                break
+        else:
+            logger.warning(
+                "Stopped after %d pages of the grid - it may be longer than expected.",
+                MAX_GRID_PAGES,
+            )
+
+        logger.info(
+            "Column selection: %d row(s) ticked, %d row(s) seen in total.",
+            ticked,
+            len(seen),
+        )
+        if failures:
+            raise ControlNotFoundError(
+                "These columns could not be ticked: " + ", ".join(failures),
+                hint="Tick them by hand once and check whether they stay ticked.",
+            )
 
     def _read_text(self, wrapper: Any) -> str:
         """Best effort read of what a control currently shows."""
