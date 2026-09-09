@@ -301,9 +301,45 @@ class NSRetailAutomation:
         logger.info("Running Search")
         self._run_step(STEP_SEARCH)
 
+    def _close_existing_preview(self) -> None:
+        """Close a report preview left over from an earlier run.
+
+        Without this, a preview that is already open satisfies the wait
+        immediately and the automation exports YESTERDAY's report under today's
+        name - a wrong file that looks entirely successful.
+        """
+        try:
+            spec = self.selectors.window("report_viewer")
+        except SelectorNotConfiguredError:
+            return
+        if not spec.inside:
+            return
+        try:
+            parent = self._window_by_key(spec.inside)
+            existing = self.backend.child_window_ref(parent, spec.search_criteria())
+        except AutomationError:
+            return  # nothing open, which is the normal case
+
+        logger.warning(
+            "A report preview was already open - closing it so the new report "
+            "cannot be confused with it."
+        )
+        self.backend.close_window(existing)
+        try:
+            self.backend.wait_for_window_closed(existing, timeout=self.settings.timeouts.window_seconds)
+        except AutomationError:
+            raise ReportViewerError(
+                "A report preview was already open and could not be closed.",
+                hint=(
+                    "Close the report preview in NS Retail by hand and run the "
+                    "automation again."
+                ),
+            ) from None
+
     def generate_report(self) -> WindowRef:
-        """Press Report and wait for the Report Viewer window."""
+        """Press Report and wait for the report preview to appear."""
         report_settings = self.settings.report()
+        self._close_existing_preview()
         logger.info("Generating report")
         self._run_step(STEP_GENERATE_REPORT)
 
