@@ -146,3 +146,50 @@ class TestOnWindows:
 
         names = {p.name.lower() for p in iter_processes()}
         assert "explorer.exe" in names
+
+
+class TestValuePlaceholders:
+    """Keystroke names and runtime placeholders share the {...} syntax."""
+
+    def _target(self, value):
+        from ns_retail_automation.automation.selectors import UiTarget
+
+        return UiTarget(action="send_keys", auto_id="x", value=value)
+
+    def test_keystrokes_pass_through_untouched(self):
+        from ns_retail_automation.automation.ns_retail import _resolve_value
+
+        for keys in ("{F3}", "{TAB}", "^a{ENTER}", "{VK_F5}"):
+            resolved = _resolve_value(self._target(keys), {}, step_name="open_column_settings")
+            assert resolved.value == keys
+
+    def test_lower_case_placeholders_are_substituted(self):
+        from datetime import date
+
+        from ns_retail_automation.automation.ns_retail import _date_context, _resolve_value
+
+        resolved = _resolve_value(
+            self._target("{date_dd_month_yyyy}"),
+            _date_context(date(2026, 9, 8)),
+            step_name="set_date",
+        )
+        assert resolved.value == "08 September 2026"
+
+    def test_keystrokes_and_placeholders_can_be_mixed(self):
+        from ns_retail_automation.automation.ns_retail import _resolve_value
+
+        resolved = _resolve_value(
+            self._target("{filename}{ENTER}"),
+            {"filename": "08.09.2026.csv"},
+            step_name="save_set_path",
+        )
+        assert resolved.value == "08.09.2026.csv{ENTER}"
+
+    def test_an_unknown_lower_case_placeholder_is_still_an_error(self):
+        import pytest as _pytest
+
+        from ns_retail_automation.automation.ns_retail import _resolve_value
+        from ns_retail_automation.errors import SelectorNotConfiguredError
+
+        with _pytest.raises(SelectorNotConfiguredError, match="unknown placeholder"):
+            _resolve_value(self._target("{nope}"), {"filename": "x"}, step_name="save_set_path")

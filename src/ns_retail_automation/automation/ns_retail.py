@@ -14,6 +14,7 @@ screen coordinate.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path, PurePath
@@ -494,15 +495,34 @@ def _date_context(report_date: date) -> dict[str, str]:
     }
 
 
+#: Runtime placeholders are lower case, e.g. {date_dd_month_yyyy}. Keystroke
+#: names are upper case, e.g. {F3} or {TAB}, and must be left for pywinauto.
+_PLACEHOLDER_RE = re.compile(r"\{([a-z][a-z0-9_]*)\}")
+
+
 def _resolve_value(target: UiTarget, context: dict[str, str], *, step_name: str) -> UiTarget:
-    """Fill ``{placeholders}`` in a target's ``value`` from the runtime context."""
+    """Fill ``{placeholders}`` in a target's ``value`` from the runtime context.
+
+    Only lower-case names are substituted, so a send_keys value such as
+    ``{F3}`` or ``^a{TAB}`` passes through to pywinauto untouched.
+    """
     if not target.value or "{" not in target.value:
         return target
-    try:
-        value = target.value.format(**context)
-    except KeyError as exc:
+
+    missing: list[str] = []
+
+    def substitute(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name in context:
+            return str(context[name])
+        missing.append(name)
+        return match.group(0)
+
+    value = _PLACEHOLDER_RE.sub(substitute, target.value)
+    if missing:
         raise SelectorNotConfiguredError(
-            f"Step '{step_name}' uses unknown placeholder {{{exc.args[0]}}} in a value.",
+            f"Step '{step_name}' uses unknown placeholder "
+            f"{{{missing[0]}}} in a value.",
             hint="Available placeholders here: " + (", ".join(sorted(context)) or "(none)"),
-        ) from exc
+        )
     return replace(target, value=value)
