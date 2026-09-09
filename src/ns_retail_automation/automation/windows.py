@@ -710,6 +710,12 @@ class WindowsBackend(AutomationBackend):
 
         Every attempt is followed by a re-read: a blind second attempt on a
         checkbox that did work would turn it back off.
+
+        The grid's in-place checkbox editor toggles right away, but the row's
+        DataItem does not report the new value until the edit is committed -
+        normally by clicking the next row, which is why this only showed up
+        on the last row of the grid, with no "next" row to commit it. A Tab
+        moves focus off the cell and commits it without that side effect.
         """
         for attempt, action in enumerate(("click", "space"), start=1):
             try:
@@ -723,6 +729,13 @@ class WindowsBackend(AutomationBackend):
             time.sleep(0.15)
             if self._cell_value(cell).lower().startswith("check"):
                 logger.info("Ticked '%s' (by %s)", label, action)
+                return True
+            from pywinauto.keyboard import send_keys  # noqa: PLC0415
+
+            send_keys("{TAB}")
+            time.sleep(0.15)
+            if self._cell_value(cell).lower().startswith("check"):
+                logger.info("Ticked '%s' (by %s, committed with Tab)", label, action)
                 return True
             logger.debug("'%s' still off after %s (attempt %d)", label, action, attempt)
         return False
