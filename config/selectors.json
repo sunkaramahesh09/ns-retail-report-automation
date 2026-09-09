@@ -49,7 +49,7 @@
     },
     "open_reports": {
       "window": "main",
-      "description": "CONFIRMED - the 'Reports' tab on the ribbon.",
+      "description": "VERIFIED 2026-09-09 - the 'Reports' tab on the ribbon.",
       "targets": [
         {
           "action": "select",
@@ -64,7 +64,7 @@
     },
     "open_stock_reports": {
       "window": "main",
-      "description": "CONFIRMED - 'Stock Reports' button in the Reports ribbon group. Scoped to the ribbon because a second button with the same name lives in the left auto-hide panel.",
+      "description": "VERIFIED 2026-09-09 - 'Stock Reports' button in the Reports ribbon group. Scoped to the ribbon because a second button with the same name lives in the left auto-hide panel.",
       "targets": [
         {
           "action": "invoke",
@@ -84,7 +84,7 @@
     },
     "set_date": {
       "window": "main",
-      "description": "CONFIRMED - From/To date pickers. The Edit inside each picker has an automation id that is really a window handle and changes every launch, so it is found through its parent ComboBox instead.",
+      "description": "VERIFIED 2026-09-09 on the running application - typing '08 September 2026' into both pickers took effect. The Edit inside each picker has an automation id that is really a window handle and changes every launch, so it is found through its parent ComboBox instead.",
       "targets": [
         {
           "action": "set_text",
