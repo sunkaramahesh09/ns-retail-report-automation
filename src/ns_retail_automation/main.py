@@ -22,6 +22,7 @@ from .automation.selectors import load_selectors
 from .config.settings import Settings, load_config
 from .errors import AutomationError, ConfigError
 from .logging_config import setup_logging
+from .notify import NotifySettings, show_result, warn_before_run
 from .platform_support import describe_environment
 from .reports import get_report_class
 from .reports.base import ReportJob, RunPlan, RunResult
@@ -102,6 +103,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--yes", action="store_true", help="answer 'yes' to overwrite questions (unattended runs)")
+    parser.add_argument(
+        "--no-popup",
+        action="store_true",
+        help="do not show the countdown or the result window (for testing)",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="log every detail")
     parser.add_argument("-q", "--quiet", action="store_true", help="only show warnings and errors")
     parser.add_argument("--version", action="version", version=f"NS Retail Report Automation {__version__}")
@@ -147,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
         job, report_date = _prepare(settings, args)
         if args.dry_run:
             return _dry_run(job, report_date)
-        return _run(job, report_date, log_path)
+        return _run(job, report_date, log_path, _notify_settings(settings, args))
     except AutomationError as exc:
         logger.debug("Automation error", exc_info=True)
         _print_error(exc)
@@ -215,17 +221,67 @@ def _dry_run(job: ReportJob, report_date: date) -> int:
     return EXIT_OK
 
 
-def _run(job: ReportJob, report_date: date, log_path) -> int:
+def _notify_settings(settings: Settings, args: argparse.Namespace) -> NotifySettings:
+    configured = settings.notifications
+    if args.no_popup:
+        return NotifySettings(enabled=False)
+    return NotifySettings(
+        enabled=configured.enabled,
+        warn_before_seconds=configured.warn_before_seconds,
+        show_result=configured.show_result,
+        allow_postpone=configured.allow_postpone,
+    )
+
+
+def _run(
+    job: ReportJob, report_date: date, log_path, notify: NotifySettings
+) -> int:
+    pretty_date = report_date.strftime("%d-%m-%Y")
+    if not warn_before_run(
+        notify,
+        what=f"About to generate the {job.title} report for {pretty_date} from NS Retail.",
+    ):
+        print("\nPostponed - nothing was changed.")
+        logger.warning("Run postponed by the operator.")
+        return EXIT_SKIPPED
+
     logger.info("Starting NS Retail automation (%s, %s)", job.key, report_date.isoformat())
-    result: RunResult = job.run(report_date)
+    try:
+        result: RunResult = job.run(report_date)
+    except AutomationError as exc:
+        # The operator is unlikely to be watching the console, so the failure
+        # has to reach them on screen.
+        show_result(
+            notify,
+            title="NS Retail automation failed",
+            message=f"{exc.message}\n\n{exc.hint or ''}\n\nLog: {log_path or '(none)'}",
+            success=False,
+        )
+        raise
+
     if result.skipped:
         print(f"\nSkipped: {result.message}")
         if result.hint:
             print(f"         {result.hint}")
+        show_result(
+            notify,
+            title="NS Retail automation - nothing to do",
+            message=f"{result.message}\n\n{result.hint or ''}",
+            success=True,
+        )
         return EXIT_SKIPPED
+
     print(f"\nSuccess: {result.message}")
     if log_path:
         print(f"Log: {log_path}")
+    show_result(
+        notify,
+        title="NS Retail report saved",
+        message=(
+            f"The {job.title} report for {pretty_date} was saved to:\n\n{result.path}"
+        ),
+        success=True,
+    )
     return EXIT_OK
 
 
