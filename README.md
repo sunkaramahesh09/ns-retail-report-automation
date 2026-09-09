@@ -11,7 +11,11 @@ CLI, tests — runs anywhere, so the project can be developed on macOS.
 
 ---
 
-## Status: Phase 1 complete
+**Start here:** [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — how to run it, how to set up
+a PC, everything learned about NS Retail's controls, and every problem hit so
+far with its fix. [`docs/STATUS.md`](docs/STATUS.md) has the current state.
+
+## Status
 
 | Area | State |
 |---|---|
