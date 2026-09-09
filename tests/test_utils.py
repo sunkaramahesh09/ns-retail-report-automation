@@ -95,3 +95,48 @@ class TestWaits:
         target.write_text("")
         with pytest.raises(TimeoutError_):
             wait_for_file(target, timeout=0.3, interval=0.05, stable_for=0.05)
+
+
+class TestOperatorNotifications:
+    """Windows must never block a run, and never appear off Windows."""
+
+    def _settings(self, **overrides):
+        from ns_retail_automation.notify import NotifySettings
+
+        return NotifySettings(**{"enabled": True, "warn_before_seconds": 60, **overrides})
+
+    def test_no_window_off_windows(self, monkeypatch):
+        """This project is developed on macOS; a dialog here would hang forever."""
+        import ns_retail_automation.notify as notify
+
+        monkeypatch.setattr(notify, "is_windows", lambda: False)
+        assert notify.warn_before_run(self._settings(), what="test") is True
+        notify.show_result(self._settings(), title="t", message="m", success=True)
+
+    def test_the_environment_can_silence_them(self, monkeypatch):
+        import ns_retail_automation.notify as notify
+
+        monkeypatch.setattr(notify, "is_windows", lambda: True)
+        monkeypatch.setenv(notify.ENV_DISABLE, "1")
+        assert notify.warn_before_run(self._settings(), what="test") is True
+
+    def test_zero_seconds_means_no_countdown(self, monkeypatch):
+        import ns_retail_automation.notify as notify
+
+        monkeypatch.setattr(notify, "is_windows", lambda: True)
+        assert notify.warn_before_run(self._settings(warn_before_seconds=0), what="x") is True
+
+    def test_a_broken_window_never_stops_the_run(self, monkeypatch):
+        import ns_retail_automation.notify as notify
+
+        monkeypatch.setattr(notify, "is_windows", lambda: True)
+        monkeypatch.setattr(
+            notify, "_countdown_window", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no display"))
+        )
+        assert notify.warn_before_run(self._settings(), what="test") is True
+
+    def test_disabled_settings_are_respected(self, monkeypatch):
+        import ns_retail_automation.notify as notify
+
+        monkeypatch.setattr(notify, "is_windows", lambda: True)
+        assert notify.warn_before_run(self._settings(enabled=False), what="x") is True

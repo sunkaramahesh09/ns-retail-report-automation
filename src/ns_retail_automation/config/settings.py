@@ -93,6 +93,12 @@ DEFAULTS: dict[str, Any] = {
         "delay_seconds": 1.0,
         "backoff": 1.5,
     },
+    "notifications": {
+        "enabled": True,
+        "warn_before_seconds": 0,
+        "show_result": True,
+        "allow_postpone": True,
+    },
     "logging": {
         "level": "INFO",
         "console_level": "INFO",
@@ -194,6 +200,18 @@ class RetrySettings:
 
 
 @dataclass(frozen=True)
+class NotificationSettings:
+    """Whether and how the operator is told what is happening on their screen."""
+
+    enabled: bool = True
+    #: 0 means no countdown. Set it to 60 for a scheduled run on a desktop
+    #: somebody else is using, so they are not ambushed by the takeover.
+    warn_before_seconds: int = 0
+    show_result: bool = True
+    allow_postpone: bool = True
+
+
+@dataclass(frozen=True)
 class LoggingSettings:
     level: str = "INFO"
     console_level: str = "INFO"
@@ -215,6 +233,7 @@ class Settings:
     default_report: str
     timeouts: TimeoutSettings
     retry: RetrySettings
+    notifications: NotificationSettings
     logging: LoggingSettings
     source_path: Path | None = None
 
@@ -407,6 +426,9 @@ def build_settings(data: dict[str, Any], *, source_path: Path | None = None) -> 
     storage = _build(StorageSettings, _section(data, "storage"), "storage")
     timeouts = _build(TimeoutSettings, _section(data, "timeouts"), "timeouts")
     retry = _build(RetrySettings, _section(data, "retry"), "retry")
+    notifications = _build(
+        NotificationSettings, _section(data, "notifications"), "notifications"
+    )
     logging_settings = _build(LoggingSettings, _section(data, "logging"), "logging")
 
     reports_section = _section(data, "reports")
@@ -431,6 +453,7 @@ def build_settings(data: dict[str, Any], *, source_path: Path | None = None) -> 
         default_report=default_report,
         timeouts=timeouts,
         retry=retry,
+        notifications=notifications,
         logging=logging_settings,
         source_path=source_path,
     )
@@ -469,6 +492,9 @@ def validate(settings: Settings) -> None:
 
     if settings.retry.attempts < 1:
         raise ConfigError("retry.attempts must be at least 1.")
+
+    if settings.notifications.warn_before_seconds < 0:
+        raise ConfigError("notifications.warn_before_seconds cannot be negative.")
 
     for name, value in vars(settings.timeouts).items():
         if value <= 0:
