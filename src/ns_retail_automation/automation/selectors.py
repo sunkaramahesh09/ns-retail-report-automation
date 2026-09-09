@@ -29,6 +29,9 @@ VALID_ACTIONS = (
     "wait",           # only wait for the control to exist (no interaction)
 )
 
+#: How to choose when several controls match the same description.
+VALID_PICKS = ("first", "last", "topmost", "bottommost", "largest")
+
 #: Criteria accepted inside a target's "parent" block.
 PARENT_CRITERIA_FIELDS = (
     "auto_id",
@@ -63,6 +66,9 @@ class UiTarget:
     value: str = ""
     optional: bool = False
     timeout_seconds: float | None = None
+    #: Which one to use when the criteria match several controls. Left empty,
+    #: several matches is an error rather than a coin toss.
+    pick: str = ""
     #: Optional container to search inside. Use it when the control itself has
     #: no stable identity - NS Retail's date fields hold an Edit whose
     #: automation id is a window handle and changes on every launch, but their
@@ -126,6 +132,11 @@ class UiTarget:
         if self.action in ("set_text", "send_keys", "menu_select") and not self.value:
             raise ConfigError(
                 f"{where}: action '{self.action}' needs a 'value'."
+            )
+        if self.pick and self.pick not in VALID_PICKS:
+            raise ConfigError(
+                f"{where}: pick '{self.pick}' is not supported.",
+                hint="Valid picks: " + ", ".join(VALID_PICKS),
             )
         if self.parent:
             if not isinstance(self.parent, dict):

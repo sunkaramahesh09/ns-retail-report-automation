@@ -106,6 +106,16 @@ class ControlNotFoundError(AutomationError):
     default_message = "A required control could not be found on screen."
 
 
+class AmbiguousControlError(AutomationError):
+    """More than one control matches - acting on the wrong one is dangerous."""
+
+    default_message = "More than one control matches this description."
+    default_hint = (
+        "Narrow the selector, or add \"pick\" to say which one to use "
+        "(first, last, topmost, bottommost)."
+    )
+
+
 class TimeoutError_(AutomationError):
     """Named with a trailing underscore so it does not shadow the builtin."""
 

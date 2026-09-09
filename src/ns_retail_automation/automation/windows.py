@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from ..errors import (
+    AmbiguousControlError,
     ApplicationLaunchError,
     ApplicationNotFoundError,
     ControlNotFoundError,
@@ -292,15 +293,105 @@ class WindowsBackend(AutomationBackend):
     def _control(self, window: WindowRef, target: UiTarget, timeout: float) -> Any:
         criteria = target.search_criteria()
         control = self._container(window, target).child_window(**criteria)
+
+        from pywinauto.findwindows import ElementAmbiguousError  # noqa: PLC0415
+
         try:
             control.wait(DEFAULT_CONTROL_STATES, timeout=timeout, retry_interval=0.3)
+        except ElementAmbiguousError as exc:
+            # Several controls match. Acting on an arbitrary one could type a
+            # date into a panel the user cannot see, so this is only resolved
+            # when the selector says which one it means.
+            return self._resolve_ambiguous(window, target, exc)
         except self._timeout_error_types() as exc:
             raise ControlNotFoundError(
                 f"Could not find the control for '{target.label()}' within "
                 f"{timeout:.0f} seconds.",
                 hint=self._not_found_hint(window),
             ) from exc
-        return control.wrapper_object()
+
+        try:
+            return control.wrapper_object()
+        except ElementAmbiguousError as exc:
+            return self._resolve_ambiguous(window, target, exc)
+
+    def _matching_wrappers(self, window: WindowRef, target: UiTarget) -> list[Any]:
+        """Every control matching the target, in tree order."""
+        container = self._container(window, target)
+        try:
+            parent_element = container.wrapper_object().element_info
+        except Exception as exc:  # noqa: BLE001 - reported by the caller
+            logger.debug("Could not resolve the container: %s", exc)
+            return []
+
+        from pywinauto.findwindows import find_elements  # noqa: PLC0415
+
+        criteria = dict(target.search_criteria())
+        criteria.pop("found_index", None)
+        elements = find_elements(
+            parent=parent_element,
+            backend=self.ui_backend,
+            top_level_only=False,
+            **criteria,
+        )
+        wrappers = []
+        for element in elements:
+            try:
+                wrappers.append(self._pywinauto().controls.uiawrapper.UIAWrapper(element))
+            except Exception:  # noqa: BLE001 - a stale element is not usable
+                continue
+        return wrappers
+
+    @staticmethod
+    def _rectangle_of(wrapper: Any) -> tuple[int, int, int, int]:
+        rect = wrapper.rectangle()
+        return (rect.top, rect.left, rect.width(), rect.height())
+
+    def _resolve_ambiguous(self, window: WindowRef, target: UiTarget, exc: Exception) -> Any:
+        matches = self._matching_wrappers(window, target)
+        described = [
+            f"{index}: {self._rectangle_of(match)[:2]}" for index, match in enumerate(matches)
+        ]
+
+        if not target.pick:
+            raise AmbiguousControlError(
+                f"{len(matches) or 'Several'} controls match '{target.label()}' - "
+                "refusing to guess which one to use.",
+                hint=(
+                    "NS Retail can leave several copies of a screen open at once. "
+                    "Close the extra ones (or restart NS Retail), or add "
+                    '"pick": "topmost" to this target in config/selectors.json. '
+                    f"Matches at (top, left): {'; '.join(described)}"
+                ),
+            ) from exc
+
+        if not matches:
+            raise ControlNotFoundError(
+                f"'{target.label()}' matched several controls, but none could be read."
+            ) from exc
+
+        chosen = self._pick_one(matches, target.pick)
+        logger.warning(
+            "%d controls match '%s'; using the '%s' one at %s.",
+            len(matches),
+            target.label(),
+            target.pick,
+            self._rectangle_of(chosen)[:2],
+        )
+        return chosen
+
+    def _pick_one(self, matches: list[Any], pick: str) -> Any:
+        if pick == "first":
+            return matches[0]
+        if pick == "last":
+            return matches[-1]
+        if pick == "topmost":
+            return min(matches, key=lambda m: self._rectangle_of(m)[0])
+        if pick == "bottommost":
+            return max(matches, key=lambda m: self._rectangle_of(m)[0])
+        if pick == "largest":
+            return max(matches, key=lambda m: self._rectangle_of(m)[2] * self._rectangle_of(m)[3])
+        return matches[0]
 
     def _not_found_hint(self, window: WindowRef) -> str:
         """Explain the most likely reason a control could not be reached.
@@ -336,9 +427,13 @@ class WindowsBackend(AutomationBackend):
         self, window: WindowRef, target: UiTarget, *, timeout: float = 0.0
     ) -> bool:
         ensure_available()
+        from pywinauto.findwindows import ElementAmbiguousError  # noqa: PLC0415
+
         try:
             control = self._container(window, target).child_window(**target.search_criteria())
             return bool(control.exists(timeout=max(timeout, 0.1), retry_interval=0.2))
+        except ElementAmbiguousError:
+            return True  # several match, so it certainly exists
         except self._timeout_error_types():
             return False
 
