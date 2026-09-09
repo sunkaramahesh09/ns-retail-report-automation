@@ -503,8 +503,17 @@ class WindowsBackend(AutomationBackend):
         if target.targets_window_itself():
             # A keystroke aimed at the screen rather than at one control, such
             # as F3 opening NS Retail's Include/Exclude dialog.
-            self.focus_window(window)
-            window.native.type_keys(target.value, with_spaces=True, set_foreground=True)
+            if target.focus:
+                self.focus_window(window)
+                window.native.type_keys(target.value, with_spaces=True, set_foreground=True)
+                return
+            # With focus:false the keys go wherever focus already is. A popup
+            # menu closes if anything else is focused, so it cannot be given
+            # focus explicitly first.
+            from pywinauto.keyboard import send_keys  # noqa: PLC0415
+
+            logger.debug("Sending keys '%s' to whatever has focus", target.value)
+            send_keys(target.value, with_spaces=True)
             return
 
         if action == "menu_select":

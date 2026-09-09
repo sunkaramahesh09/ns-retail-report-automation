@@ -212,8 +212,15 @@
     },
     "choose_csv_format": {
       "window": "report_viewer",
-      "description": "TODO - the 'CSV File' entry in the Export To menu. The menu closes when focus moves, so capture it with scripts\\capture_popup.bat.",
-      "targets": []
+      "description": "CONFIRMED 2026-09-09 - the export format list is drawn by DevExpress without exposing its entries to UI Automation: a scan of every open window while the menu was on screen found none of them. So the entry is reached by keyboard instead. The list is PDF, HTML, MHT, RTF, DOCX, XLS, XLSX, CSV, Text, Image - CSV is the eighth. focus is false because giving the window focus would close the menu. If NS Retail ever reorders that list, change the number below; the format is checked again in save_set_path before anything is written.",
+      "targets": [
+        {
+          "action": "send_keys",
+          "description": "pick CSV File from the export menu",
+          "value": "{DOWN 8}{ENTER}",
+          "focus": false
+        }
+      ]
     },
     "confirm_export": {
       "window": "csv_options",

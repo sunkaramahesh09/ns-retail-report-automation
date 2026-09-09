@@ -71,6 +71,10 @@ class UiTarget:
     #: Which one to use when the criteria match several controls. Left empty,
     #: several matches is an error rather than a coin toss.
     pick: str = ""
+    #: Whether to focus the window before sending keys. A popup menu closes the
+    #: moment anything else takes focus, so keys meant for one must be sent
+    #: without touching focus at all.
+    focus: bool = True
     #: Optional container to search inside. Use it when the control itself has
     #: no stable identity - NS Retail's date fields hold an Edit whose
     #: automation id is a window handle and changes on every launch, but their
