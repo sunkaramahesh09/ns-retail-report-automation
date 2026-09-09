@@ -38,6 +38,30 @@
       "export_format": "CSV",
       "generation_timeout_seconds": 300,
       "storage_overrides": {}
+    },
+    "dispatches": {
+      "enabled": true,
+      "export_format": "CSV",
+      "generation_timeout_seconds": 300,
+      "storage_overrides": {
+        "base_path": "D:\\{fy_label} DAY WISE REPORTS\\Dispatches"
+      }
+    },
+    "sales": {
+      "enabled": true,
+      "export_format": "CSV",
+      "generation_timeout_seconds": 300,
+      "storage_overrides": {
+        "base_path": "D:\\{fy_label} DAY WISE REPORTS\\Sales"
+      }
+    },
+    "stock_as_on_date": {
+      "enabled": true,
+      "export_format": "CSV",
+      "generation_timeout_seconds": 300,
+      "storage_overrides": {
+        "base_path": "D:\\{fy_label} DAY WISE REPORTS\\Stock As on date"
+      }
     }
   },
 

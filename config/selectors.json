@@ -126,6 +126,72 @@
         }
       ]
     },
+    "select_dispatches_report": {
+      "window": "main",
+      "description": "CONFIRMED 2026-09-09 live - the full catalog tree (auto_id tlReport) was read row by row: Node9's DataItem value is 'Dispatches'. Its criteria screen has the same dtpFromDate/dtpToDate pair as Purchases, plus extra unused filters (Branch, Periodicity, Category, Item Code). The wait target (layoutControl1) matches twice on this screen - once for the report's own root layout, once for the nested search-criteria sub-control (ucBranchTransactions) - but the 'wait' action tolerates an ambiguous match (it means the control certainly exists), so this is not a problem.",
+      "targets": [
+        {
+          "action": "click",
+          "description": "'Dispatches' row in the Stock Reports catalog tree (Node9)",
+          "title": "Node9",
+          "control_type": "TreeItem",
+          "parent": {
+            "auto_id": "tlReport"
+          }
+        },
+        {
+          "action": "wait",
+          "description": "the Dispatches criteria screen",
+          "auto_id": "layoutControl1",
+          "control_type": "Pane",
+          "timeout_seconds": 30
+        }
+      ]
+    },
+    "select_sales_report": {
+      "window": "main",
+      "description": "CONFIRMED 2026-09-09 live from the same catalog tree read as Dispatches: Node10's DataItem value is 'Sales'. Same screen shape as Dispatches (dtpFromDate/dtpToDate pair plus unused filters); see select_dispatches_report for the ambiguous-wait note.",
+      "targets": [
+        {
+          "action": "click",
+          "description": "'Sales' row in the Stock Reports catalog tree (Node10)",
+          "title": "Node10",
+          "control_type": "TreeItem",
+          "parent": {
+            "auto_id": "tlReport"
+          }
+        },
+        {
+          "action": "wait",
+          "description": "the Sales criteria screen",
+          "auto_id": "layoutControl1",
+          "control_type": "Pane",
+          "timeout_seconds": 30
+        }
+      ]
+    },
+    "select_stock_as_on_date_report": {
+      "window": "main",
+      "description": "CONFIRMED 2026-09-09 live from the same catalog tree read: Node4's DataItem value is 'Stock As on date'. Unlike Purchases/Dispatches/Sales this is a snapshot report - its criteria screen has a single date field (dtAsOnDate), not a From/To pair; see the set_as_on_date step.",
+      "targets": [
+        {
+          "action": "click",
+          "description": "'Stock As on date' row in the Stock Reports catalog tree (Node4)",
+          "title": "Node4",
+          "control_type": "TreeItem",
+          "parent": {
+            "auto_id": "tlReport"
+          }
+        },
+        {
+          "action": "wait",
+          "description": "the Stock As on date criteria screen",
+          "auto_id": "layoutControl1",
+          "control_type": "Pane",
+          "timeout_seconds": 30
+        }
+      ]
+    },
     "set_date": {
       "window": "main",
       "description": "VERIFIED 2026-09-09 on the running application - typing '08 September 2026' into both pickers took effect. The Edit inside each picker has an automation id that is really a window handle and changes every launch, so it is found through its parent ComboBox instead.",
@@ -145,6 +211,21 @@
           "control_type": "Edit",
           "parent": {
             "auto_id": "dtpToDate"
+          },
+          "value": "{date_dd_month_yyyy}"
+        }
+      ]
+    },
+    "set_as_on_date": {
+      "window": "main",
+      "description": "Stock As on date is a snapshot report - its criteria screen has one date field (dtAsOnDate), not the dtpFromDate/dtpToDate pair the range reports use. Confirmed 2026-09-09 by live inspection of the open screen (a ComboBox with auto_id dtAsOnDate under a pane titled 'As on Date').",
+      "targets": [
+        {
+          "action": "set_text",
+          "description": "As on Date",
+          "control_type": "Edit",
+          "parent": {
+            "auto_id": "dtAsOnDate"
           },
           "value": "{date_dd_month_yyyy}"
         }
@@ -226,7 +307,7 @@
     },
     "export_to": {
       "window": "report_viewer",
-      "description": "CORRECTED 2026-09-09 from a screenshot of the actual open menu (docs/captures - the operator captured it directly instead of guessing from automation). The list is a FIXED 10 entries, always in this order: PDF, HTML, MHT, RTF, DOCX, XLS, XLSX, CSV, Text, Image - CSV is always the 8th (index 7). The earlier 'most-recently-used ordering' theory was wrong; it was concluded from a trial loop whose own repeated selections were themselves corrupting later trials in ways that were never actually isolated from a stable baseline. Menu entries are still invisible to UI Automation (0 descendants under the popup's MenuBar, confirmed live), so this is a fixed keyboard position - Home, Down x7, Enter - not a read-and-match. choose_csv_format (next step) still verifies the resulting dialog really says CSV, so a future menu change fails loudly instead of silently exporting the wrong format.",
+      "description": "CORRECTED 2026-09-09 from a screenshot of the actual open menu (docs/captures - the operator captured it directly instead of guessing from automation). The list is a FIXED 10 entries, always in this order: PDF, HTML, MHT, RTF, DOCX, XLS, XLSX, CSV, Text, Image - CSV is always the 8th (index 7). The earlier 'most-recently-used ordering' theory was wrong; it was concluded from a trial loop whose own repeated selections were themselves corrupting later trials in ways that were never actually isolated from a stable baseline. Menu entries are still invisible to UI Automation (0 descendants under the popup's MenuBar, confirmed live), so this is a fixed keyboard position - Home, Down x7, Enter - not a read-and-match. choose_csv_format (next step) still verifies the resulting dialog really says CSV, so a future menu change fails loudly instead of silently exporting the wrong format. timeout_seconds raised to 90 on the first click after a large report (Sales, ~10k+ rows with detailed columns) made NS Retail itself go briefly unresponsive right after the Preview window appeared - confirmed live: the process stayed alive and the window came back on its own about 20-30 seconds later, it just was not ready to accept clicks yet.",
       "targets": [
         {
           "action": "invoke",
@@ -236,7 +317,8 @@
           "parent": {
             "title": "Export To",
             "control_type": "SplitButton"
-          }
+          },
+          "timeout_seconds": 90
         },
         {
           "action": "send_keys",

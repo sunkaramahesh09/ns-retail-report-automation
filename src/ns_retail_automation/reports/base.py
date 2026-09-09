@@ -119,6 +119,14 @@ class ReportJob:
         """Open the screen this report lives on."""
         raise NotImplementedError
 
+    def set_date(self, automation: NSRetailAutomation, report_date: date) -> None:
+        """Put the report date into NS Retail.
+
+        Overridden by a report whose screen uses a single date instead of a
+        From/To range (Stock As on date).
+        """
+        automation.set_date(report_date)
+
     # -- execution -------------------------------------------------------
     def run(self, report_date: date) -> RunResult:
         """Run the full workflow for one date."""
@@ -159,7 +167,7 @@ class ReportJob:
         self.navigate(automation)
         result.steps_completed.append("navigate")
 
-        automation.set_date(report_date)
+        self.set_date(automation, report_date)
         result.steps_completed.append("set_date")
         automation.search()
         result.steps_completed.append("search")

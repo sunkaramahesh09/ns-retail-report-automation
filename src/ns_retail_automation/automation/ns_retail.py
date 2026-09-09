@@ -43,7 +43,11 @@ STEP_CLOSE_REPORT_SCREENS = "close_report_screens"
 STEP_OPEN_REPORTS = "open_reports"
 STEP_OPEN_STOCK_REPORTS = "open_stock_reports"
 STEP_SELECT_PURCHASE_REPORT = "select_purchase_report"
+STEP_SELECT_DISPATCHES_REPORT = "select_dispatches_report"
+STEP_SELECT_SALES_REPORT = "select_sales_report"
+STEP_SELECT_STOCK_AS_ON_DATE_REPORT = "select_stock_as_on_date_report"
 STEP_SET_DATE = "set_date"
+STEP_SET_AS_ON_DATE = "set_as_on_date"
 STEP_OPEN_COLUMN_SETTINGS = "open_column_settings"
 STEP_INCLUDE_ALL_COLUMNS = "include_all_columns"
 STEP_APPLY_AND_SEARCH = "apply_and_search"
@@ -301,10 +305,32 @@ class NSRetailAutomation:
         logger.info("Selecting Purchases")
         self._run_step(STEP_SELECT_PURCHASE_REPORT)
 
+    def select_dispatches_report(self) -> None:
+        logger.info("Selecting Dispatches")
+        self._run_step(STEP_SELECT_DISPATCHES_REPORT)
+
+    def select_sales_report(self) -> None:
+        logger.info("Selecting Sales")
+        self._run_step(STEP_SELECT_SALES_REPORT)
+
+    def select_stock_as_on_date_report(self) -> None:
+        logger.info("Selecting Stock As on date")
+        self._run_step(STEP_SELECT_STOCK_AS_ON_DATE_REPORT)
+
     def set_date(self, report_date: date) -> None:
-        """Type the report date into the date field(s)."""
+        """Type the report date into the From/To date field pair."""
         logger.info("Setting report date: %s", report_date.strftime("%d-%m-%Y"))
         self._run_step(STEP_SET_DATE, context=_date_context(report_date))
+
+    def set_as_on_date(self, report_date: date) -> None:
+        """Type the report date into the single 'As on Date' field.
+
+        Stock As on date is a snapshot report, not a range - it has one date
+        field (dtAsOnDate) instead of the dtpFromDate/dtpToDate pair every
+        other report on this screen uses.
+        """
+        logger.info("Setting 'as on' date: %s", report_date.strftime("%d-%m-%Y"))
+        self._run_step(STEP_SET_AS_ON_DATE, context=_date_context(report_date))
 
     def search(self) -> None:
         """Run the search, including the Include/Exclude column dialog.

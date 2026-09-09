@@ -107,13 +107,23 @@ Passwords are never stored in the source or in `config.json`. Choose
 
 ```bash
 ns-retail-automation --dry-run                          # show what would happen
-ns-retail-automation --report purchases --date yesterday
-ns-retail-automation --report purchases --date 2026-09-08
+ns-retail-automation --date yesterday                   # run every enabled report, one after another
 ns-retail-automation --date 08-09-2026 --on-existing duplicate
+ns-retail-automation --report purchases --date yesterday   # just one report
+ns-retail-automation --report dispatches --date yesterday
+ns-retail-automation --report sales --date yesterday
+ns-retail-automation --report stock_as_on_date --date yesterday
 ns-retail-automation --check                            # what is ready, what is not
 ns-retail-automation --list-reports
 ns-retail-automation --inspect                          # Windows only, read-only
 ```
+
+Without `--report`, every report with `enabled: true` in the configuration runs
+for that date, in the order they appear in `config.json` (`scripts\run_report.bat`
+uses this). They share one NS Retail session — the "report saved" popup after
+each one is what the operator dismisses to move on to the next; a failure stops
+the sequence there instead of pressing on to reports likely to hit the same
+problem. Pass `--report <key>` to run only that one report.
 
 Without installing, use `PYTHONPATH=src python3 -m ns_retail_automation ...`.
 
@@ -256,6 +266,9 @@ src/ns_retail_automation/
   reports/
     base.py               plan -> run -> verify, existing-file safety
     purchase_report.py    Reports -> Stock Reports -> Purchases
+    dispatch_report.py    Reports -> Stock Reports -> Dispatches
+    sales_report.py       Reports -> Stock Reports -> Sales
+    stock_as_on_date_report.py  Reports -> Stock Reports -> Stock As on date (single-date snapshot)
   filesystem/
     report_storage.py     folders, filenames, duplicates, verification
   utils/

@@ -150,10 +150,16 @@ def main(argv: list[str] | None = None) -> int:
         if args.try_step:
             return _try_step(settings, args)
 
-        job, report_date = _prepare(settings, args)
+        if args.report:
+            job, report_date = _prepare(settings, args)
+            if args.dry_run:
+                return _dry_run(job, report_date)
+            return _run(job, report_date, log_path, _notify_settings(settings, args))
+
+        jobs, report_date = _prepare_all(settings, args)
         if args.dry_run:
-            return _dry_run(job, report_date)
-        return _run(job, report_date, log_path, _notify_settings(settings, args))
+            return _dry_run_all(jobs, report_date)
+        return _run_all(jobs, report_date, log_path, _notify_settings(settings, args))
     except AutomationError as exc:
         logger.debug("Automation error", exc_info=True)
         _print_error(exc)
@@ -166,11 +172,7 @@ def main(argv: list[str] | None = None) -> int:
 # --------------------------------------------------------------------------
 # Sub-commands
 # --------------------------------------------------------------------------
-def _prepare(settings: Settings, args: argparse.Namespace) -> tuple[ReportJob, date]:
-    report_key = args.report or settings.default_report
-    report_class = get_report_class(report_key)
-    settings.report(report_class.key)  # validates that it is configured
-
+def _resolve_single_date(settings: Settings, args: argparse.Namespace) -> date:
     dates = DateManager(
         fiscal_year_start_month=settings.dates.fiscal_year_start_month,
         fiscal_year_label_format=settings.dates.fiscal_year_label_format,
@@ -182,6 +184,15 @@ def _prepare(settings: Settings, args: argparse.Namespace) -> tuple[ReportJob, d
             f"'{requested}' is a range of {len(days)} dates.",
             hint="Date ranges are not implemented yet - run one date at a time.",
         )
+    return days[0]
+
+
+def _prepare(settings: Settings, args: argparse.Namespace) -> tuple[ReportJob, date]:
+    report_key = args.report or settings.default_report
+    report_class = get_report_class(report_key)
+    settings.report(report_class.key)  # validates that it is configured
+
+    report_date = _resolve_single_date(settings, args)
 
     backend = get_backend(settings.application.ui_backend)
     selectors = load_selectors(args.selectors)
@@ -193,7 +204,40 @@ def _prepare(settings: Settings, args: argparse.Namespace) -> tuple[ReportJob, d
         on_existing=args.on_existing,
         confirm=_confirm_yes if args.yes else _ask_user,
     )
-    return job, days[0]
+    return job, report_date
+
+
+def _prepare_all(settings: Settings, args: argparse.Namespace) -> tuple[list[ReportJob], date]:
+    """Build one job per enabled report, sharing a single automation/session.
+
+    This is what an unattended run (no ``--report``) does: work through every
+    enabled report for the date, one after another, instead of just the
+    configured default.
+    """
+    report_date = _resolve_single_date(settings, args)
+
+    backend = get_backend(settings.application.ui_backend)
+    selectors = load_selectors(args.selectors)
+    automation = NSRetailAutomation(settings, selectors, backend)
+    confirm = _confirm_yes if args.yes else _ask_user
+
+    jobs: list[ReportJob] = []
+    for key, report_settings in settings.reports.items():
+        if not report_settings.enabled:
+            continue
+        try:
+            report_class = get_report_class(key)
+        except ConfigError:
+            logger.warning("Report '%s' is configured but not implemented yet - skipping it.", key)
+            continue
+        jobs.append(report_class(settings, automation, on_existing=args.on_existing, confirm=confirm))
+
+    if not jobs:
+        raise ConfigError(
+            "No enabled reports are configured.",
+            hint="Enable at least one report in the 'reports' section, or pass --report <key>.",
+        )
+    return jobs, report_date
 
 
 def _dry_run(job: ReportJob, report_date: date) -> int:
@@ -204,6 +248,32 @@ def _dry_run(job: ReportJob, report_date: date) -> int:
 
     automation = job.automation
     print()
+    if automation is not None:
+        missing = automation.missing_steps() + [
+            f"window:{name}" for name in automation.missing_windows()
+        ]
+        if missing:
+            print("Not mapped to NS Retail yet (Phase 2 work):")
+            for name in missing:
+                print(f"  - {name}")
+            print(
+                "\nRun the inspector on the Windows PC and fill in "
+                "config/selectors.json before a real run."
+            )
+        else:
+            print("All required windows and steps are mapped in the selector file.")
+    return EXIT_OK
+
+
+def _dry_run_all(jobs: list[ReportJob], report_date: date) -> int:
+    print("DRY RUN - NS Retail will not be touched.\n")
+    for job in jobs:
+        plan: RunPlan = job.plan(report_date)
+        for line in plan.describe():
+            print(line)
+        print()
+
+    automation = jobs[0].automation if jobs else None
     if automation is not None:
         missing = automation.missing_steps() + [
             f"window:{name}" for name in automation.missing_windows()
@@ -236,53 +306,75 @@ def _notify_settings(settings: Settings, args: argparse.Namespace) -> NotifySett
 def _run(
     job: ReportJob, report_date: date, log_path, notify: NotifySettings
 ) -> int:
+    return _run_all([job], report_date, log_path, notify)
+
+
+def _run_all(
+    jobs: list[ReportJob], report_date: date, log_path, notify: NotifySettings
+) -> int:
+    """Run each job in turn, on one shared NS Retail session.
+
+    The operator sees one result popup per report; clicking its OK button is
+    what lets the loop move on to the next one, since the popup is a blocking
+    dialog in this same process. A failure stops the sequence there rather
+    than pressing on to reports that would likely hit the same problem - the
+    operator fixes it and reruns the ones that did not finish.
+    """
     pretty_date = report_date.strftime("%d-%m-%Y")
-    if not warn_before_run(
-        notify,
-        what=f"About to generate the {job.title} report for {pretty_date} from NS Retail.",
-    ):
+    multiple = len(jobs) > 1
+    if multiple:
+        titles = ", ".join(job.title for job in jobs)
+        what = f"About to generate {len(jobs)} reports for {pretty_date} from NS Retail, one after another: {titles}."
+    else:
+        what = f"About to generate the {jobs[0].title} report for {pretty_date} from NS Retail."
+    if not warn_before_run(notify, what=what):
         print("\nPostponed - nothing was changed.")
         logger.warning("Run postponed by the operator.")
         return EXIT_SKIPPED
 
-    logger.info("Starting NS Retail automation (%s, %s)", job.key, report_date.isoformat())
-    try:
-        result: RunResult = job.run(report_date)
-    except AutomationError as exc:
-        # The operator is unlikely to be watching the console, so the failure
-        # has to reach them on screen.
-        show_result(
-            notify,
-            title="NS Retail automation failed",
-            message=f"{exc.message}\n\n{exc.hint or ''}\n\nLog: {log_path or '(none)'}",
-            success=False,
-        )
-        raise
+    exit_code = EXIT_SKIPPED
+    for job in jobs:
+        label = f" ({job.title})" if multiple else ""
+        logger.info("Starting NS Retail automation (%s, %s)", job.key, report_date.isoformat())
+        try:
+            result: RunResult = job.run(report_date)
+        except AutomationError as exc:
+            # The operator is unlikely to be watching the console, so the failure
+            # has to reach them on screen.
+            show_result(
+                notify,
+                title="NS Retail automation failed",
+                message=f"{exc.message}\n\n{exc.hint or ''}\n\nLog: {log_path or '(none)'}",
+                success=False,
+            )
+            raise
 
-    if result.skipped:
-        print(f"\nSkipped: {result.message}")
-        if result.hint:
-            print(f"         {result.hint}")
+        if result.skipped:
+            print(f"\nSkipped{label}: {result.message}")
+            if result.hint:
+                print(f"         {result.hint}")
+            show_result(
+                notify,
+                title=f"NS Retail automation - nothing to do{label}",
+                message=f"{result.message}\n\n{result.hint or ''}",
+                success=True,
+            )
+            continue
+
+        exit_code = EXIT_OK
+        print(f"\nSuccess{label}: {result.message}")
+        if log_path:
+            print(f"Log: {log_path}")
         show_result(
             notify,
-            title="NS Retail automation - nothing to do",
-            message=f"{result.message}\n\n{result.hint or ''}",
+            title="NS Retail report saved",
+            message=(
+                f"The {job.title} report for {pretty_date} was saved to:\n\n{result.path}"
+            ),
             success=True,
         )
-        return EXIT_SKIPPED
 
-    print(f"\nSuccess: {result.message}")
-    if log_path:
-        print(f"Log: {log_path}")
-    show_result(
-        notify,
-        title="NS Retail report saved",
-        message=(
-            f"The {job.title} report for {pretty_date} was saved to:\n\n{result.path}"
-        ),
-        success=True,
-    )
-    return EXIT_OK
+    return exit_code
 
 
 def _check(settings: Settings, args: argparse.Namespace) -> int:

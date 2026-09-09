@@ -1,0 +1,83 @@
+Looking inside the dialog matching {'auto_id': 'frmIncludeExclude'}
+
+Window: title="Include Exclude Settings"  class="WindowsForms10.Window.8.app.0.fb11c8_r8_ad1"  pid=332
+
+Window  name="Include Exclude Settings"  auto_id="frmIncludeExclude"  class="WindowsForms10.Window.8.app.0.fb11c8_r8_ad1"
+  Pane  class="WindowsForms10.Window.0.app.0.fb11c8_r8_ad1"
+  Pane  name="The XtraLayoutControl"  auto_id="layoutControl1"  class="WindowsForms10.Window.8.app.0.fb11c8_r8_ad1"
+    Button  name="Apply and Search"  auto_id="btnApplyAndSearch"  class="WindowsForms10.Window.b.app.0.fb11c8_r8_ad1"
+    Table  name="MainView"  auto_id="gcIncExc"  class="WindowsForms10.Window.8.app.0.fb11c8_r8_ad1"
+      ScrollBar  name="Vertical"  auto_id="1508790"  class="WindowsForms10.Window.8.app.0.fb11c8_r8_ad1"
+        Button  name="Line Up"
+        Button  name="Page Up"
+        Thumb  name="Position"
+        Button  name="Line Down"
+      CheckBox  name="Editing control"  auto_id="330428"  class="WindowsForms10.Window.b.app.0.fb11c8_r8_ad1"  [on]
+      Custom  name="Header Panel"
+        Header  name="Column Name"
+        Header  name="Include"
+        Header  name="Value"
+      Custom  name="Data Panel"
+        ListItem  name="Row 2"  value="Item details;Checked;Yes;"
+          DataItem  name="Column Name row 2"  value="Item details"
+          DataItem  name="Include row 2"  value="Checked"
+          DataItem  name="Value row 2"  value="Yes"
+        ListItem  name="Row 3"  value="Supplier;Checked;Yes;"
+          DataItem  name="Column Name row 3"  value="Supplier"
+          DataItem  name="Include row 3"  value="Checked"
+          DataItem  name="Value row 3"  value="Yes"
+        ListItem  name="Row 4"  value="Category;Checked;Yes;"
+          DataItem  name="Column Name row 4"  value="Category"
+          DataItem  name="Include row 4"  value="Checked"
+          DataItem  name="Value row 4"  value="Yes"
+        ListItem  name="Row 5"  value="SubCategory;Checked;Yes;"
+          DataItem  name="Column Name row 5"  value="SubCategory"
+          DataItem  name="Include row 5"  value="Checked"
+          DataItem  name="Value row 5"  value="Yes"
+        ListItem  name="Row 6"  value="Tax wise;Checked;Yes;"
+          DataItem  name="Column Name row 6"  value="Tax wise"
+          DataItem  name="Include row 6"  value="Checked"
+          DataItem  name="Value row 6"  value="Yes"
+        ListItem  name="Row 7"  value="Discount & scheme details;Checked;Yes;"
+          DataItem  name="Column Name row 7"  value="Discount & scheme details"
+          DataItem  name="Include row 7"  value="Checked"
+          DataItem  name="Value row 7"  value="Yes"
+        ListItem  name="Row 8"  value="Brand;Checked;Yes;"
+          DataItem  name="Column Name row 8"  value="Brand"
+          DataItem  name="Include row 8"  value="Checked"
+          DataItem  name="Value row 8"  value="Yes"
+        ListItem  name="Row 9"  value="SubManufacturer;Unchecked;No;"
+          DataItem  name="Column Name row 9"  value="SubManufacturer"
+          DataItem  name="Include row 9"  value="Unchecked"
+          DataItem  name="Value row 9"  value="No"
+    Pane  name="Root"
+      Custom  name="emptySpaceItem1"
+  TitleBar
+    Button  name="Minimize"
+    Button  name="Maximize"
+    Button  name="Close"
+
+Selector suggestions (copy into config/selectors.json):
+  {"action": "invoke", "auto_id": "layoutControl1", "title": "The XtraLayoutControl", "control_type": "Pane"}
+  {"action": "invoke", "auto_id": "btnApplyAndSearch", "title": "Apply and Search", "control_type": "Button"}
+  {"action": "invoke", "title": "Line Up", "control_type": "Button"}
+  {"action": "invoke", "title": "Page Up", "control_type": "Button"}
+  {"action": "invoke", "title": "Line Down", "control_type": "Button"}
+  {"action": "invoke", "auto_id": "330428", "title": "Editing control", "control_type": "CheckBox"}
+  {"action": "invoke", "title": "Header Panel", "control_type": "Custom"}
+  {"action": "invoke", "title": "Data Panel", "control_type": "Custom"}
+  {"action": "invoke", "title": "Row 2", "control_type": "ListItem"}
+  {"action": "invoke", "title": "Row 3", "control_type": "ListItem"}
+  {"action": "invoke", "title": "Row 4", "control_type": "ListItem"}
+  {"action": "invoke", "title": "Row 5", "control_type": "ListItem"}
+  {"action": "invoke", "title": "Row 6", "control_type": "ListItem"}
+  {"action": "invoke", "title": "Row 7", "control_type": "ListItem"}
+  {"action": "invoke", "title": "Row 8", "control_type": "ListItem"}
+  {"action": "invoke", "title": "Row 9", "control_type": "ListItem"}
+  {"action": "invoke", "title": "Root", "control_type": "Pane"}
+  {"action": "invoke", "title": "emptySpaceItem1", "control_type": "Custom"}
+  {"action": "invoke", "title": "Minimize", "control_type": "Button"}
+  {"action": "invoke", "title": "Maximize", "control_type": "Button"}
+  {"action": "invoke", "title": "Close", "control_type": "Button"}
+
+Full control tree written to docs\captures\frmIncludeExclude.json
