@@ -23,7 +23,7 @@ if /i "%~1"=="go" (
     "%PY%" -m ns_retail_automation --report purchases --date "%WHEN%"
 ) else (
     echo Dry run for %WHEN% - NS Retail will not be touched.
-    echo (add "go" to run for real:  scripts\run_report.bat go^)
+    echo ^(add "go" to run for real:  scripts\run_report.bat go^)
     echo.
     "%PY%" -m ns_retail_automation --report purchases --date "%WHEN%" --dry-run
 )
